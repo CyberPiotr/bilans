@@ -9,6 +9,8 @@ Pierwsza działająca wersja mobilnej aplikacji PWA do kontroli keto-odżywiania
 - historia wpisów i usuwanie,
 - edytowalne ustawienia celów i okna jedzenia przechowywane w IndexedDB,
 - zapamiętywany motyw systemowy, jasny lub ciemny,
+- mobilny app shell z osobnymi widokami, menu i dolnym composerem,
+- akordeony dla celów, realizacji i szczegółów historii,
 - centrum alertów „Co domknąć” i plan na jutro,
 - sumy oraz statusy celów dla 1, 3, 7 i 30 dni,
 - eksport i import kopii zapasowej JSON,

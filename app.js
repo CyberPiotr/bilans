@@ -124,7 +124,6 @@
   };
 
   const SETTINGS_GROUPS = [
-    { title: "Wygląd", fields: [["theme", "Motyw", "select"]] },
     { title: "Okno jedzenia", fields: [["eatingWindowStart", "Od", "time"], ["eatingWindowEnd", "Do", "time"]] },
     { title: "Cele dzienne", fields: [
       ["dailyKalorie", "Kalorie (kcal)"], ["dailyBialko", "Białko (g)"], ["dailyTluszcz", "Tłuszcz (g)"],
@@ -159,6 +158,7 @@
   let deferredInstallPrompt = null;
   let alertsExpanded = false;
   let editingEntryId = null;
+  let currentView = "start";
 
   function getDefaultSettings() {
     return {
@@ -479,33 +479,43 @@
   function renderAlerts() {
     const alerts = calculateAlerts();
     elements.alertsList.replaceChildren();
+    elements.startAlertsList.replaceChildren();
     if (alerts.length === 0) {
       const item = document.createElement("div");
       item.className = "alert-item";
       item.textContent = "Najważniejsze cele są dziś pod kontrolą.";
       elements.alertsList.append(item);
+      const chip = document.createElement("span");
+      chip.className = "priority-chip ok";
+      chip.textContent = "Pod kontrolą";
+      elements.startAlertsList.append(chip);
     } else {
       (alertsExpanded ? alerts : alerts.slice(0, 3)).forEach((alert) => {
-        const item = document.createElement("div");
+        const item = document.createElement("details");
         item.className = `alert-item${alert.exceeded ? " exceeded" : ""}`;
+        const summary = document.createElement("summary");
         const title = document.createElement("strong");
         title.className = "alert-title";
         title.textContent = alert.label;
         const short = document.createElement("span");
         short.className = "alert-short";
         short.textContent = alert.shortMessage;
-        item.append(title, short);
-        if (alertsExpanded) {
-          const details = document.createElement("ul");
-          details.className = "alert-details";
-          alert.details.forEach((detail) => {
-            const row = document.createElement("li");
-            row.textContent = detail;
-            details.append(row);
-          });
-          item.append(details);
-        }
+        summary.append(title, short);
+        const details = document.createElement("ul");
+        details.className = "alert-details";
+        alert.details.forEach((detail) => {
+          const row = document.createElement("li");
+          row.textContent = detail;
+          details.append(row);
+        });
+        item.append(summary, details);
         elements.alertsList.append(item);
+      });
+      alerts.slice(0, 3).forEach((alert) => {
+        const chip = document.createElement("span");
+        chip.className = `priority-chip${alert.exceeded ? " exceeded" : ""}`;
+        chip.textContent = alert.label;
+        elements.startAlertsList.append(chip);
       });
     }
     elements.toggleAlertsButton.hidden = alerts.length <= 3;
@@ -528,15 +538,21 @@
       : state === "during"
         ? `Do domknięcia w dzisiejszym oknie: ${list}.`
         : `Okno jedzenia już minęło. Na jutro warto zaplanować: ${list}.`;
+    elements.startStatus.textContent = elements.eatingWindowMessage.textContent;
   }
 
   function renderSettings() {
     elements.settingsFields.replaceChildren();
-    SETTINGS_GROUPS.forEach((group) => {
-      const section = document.createElement("section");
-      section.className = "settings-group";
-      const title = document.createElement("h3");
+    SETTINGS_GROUPS.forEach((group, groupIndex) => {
+      const section = document.createElement("details");
+      section.className = "accordion settings-group";
+      section.open = groupIndex === 0;
+      const summary = document.createElement("summary");
+      const title = document.createElement("strong");
       title.textContent = group.title;
+      const hint = document.createElement("span");
+      hint.textContent = "Rozwiń";
+      summary.append(title, hint);
       const grid = document.createElement("div");
       grid.className = "settings-grid";
       group.fields.forEach(([key, label, type = "number"]) => {
@@ -565,13 +581,13 @@
         field.append(control);
         grid.append(field);
       });
-      section.append(title, grid);
+      section.append(summary, grid);
       elements.settingsFields.append(section);
     });
   }
 
   function readSettingsForm() {
-    const result = { ...getDefaultSettings() };
+    const result = { ...settings };
     new FormData(elements.settingsForm).forEach((value, key) => {
       result[key] = key.startsWith("eatingWindow") || key === "theme" ? value : Number(value);
     });
@@ -585,17 +601,19 @@
     document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.style.colorScheme = resolvedTheme;
     elements.themeColorMeta.content = resolvedTheme === "dark" ? "#08111f" : "#f1f5f2";
+    if (elements.themeButtons) updateThemeButtons();
   }
 
   function renderSummaries() {
     elements.summarySections.replaceChildren();
 
-    getGoalGroups().forEach((group) => {
+    getGoalGroups().forEach((group, groupIndex) => {
       const periodEntries = getEntriesForDays(group.days);
-      const section = document.createElement("section");
-      section.className = "summary-group";
+      const section = document.createElement("details");
+      section.className = "accordion summary-group";
+      section.open = groupIndex === 0;
 
-      const header = document.createElement("div");
+      const header = document.createElement("summary");
       header.className = "summary-group-header";
       const title = document.createElement("h3");
       title.textContent = group.title;
@@ -711,6 +729,15 @@
           article.append(tagList);
         }
 
+        const details = document.createElement("details");
+        details.className = "entry-details";
+        const detailsSummary = document.createElement("summary");
+        detailsSummary.textContent = "Szczegóły wpisu";
+        const raw = document.createElement("pre");
+        raw.textContent = entry.rawText;
+        details.append(detailsSummary, raw);
+        article.append(details);
+
         elements.entriesList.append(article);
       });
   }
@@ -724,6 +751,60 @@
   function setMessage(element, text, type = "") {
     element.textContent = text;
     element.className = `message ${type}`.trim();
+  }
+
+  function switchView(viewName) {
+    const target = document.querySelector(`[data-view="${viewName}"]`);
+    if (!target) return;
+    currentView = viewName;
+    document.querySelectorAll(".app-view").forEach((view) => view.classList.toggle("active", view === target));
+    document.querySelectorAll("[data-view-target]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.viewTarget === viewName);
+    });
+    closeMenu();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openMenu() {
+    elements.appMenu.classList.add("open");
+    elements.appMenu.setAttribute("aria-hidden", "false");
+    elements.menuBackdrop.hidden = false;
+    elements.menuButton.setAttribute("aria-expanded", "true");
+    document.body.classList.add("menu-open");
+  }
+
+  function closeMenu() {
+    elements.appMenu.classList.remove("open");
+    elements.appMenu.setAttribute("aria-hidden", "true");
+    elements.menuBackdrop.hidden = true;
+    elements.menuButton.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("menu-open");
+  }
+
+  function resizeComposer() {
+    elements.rawInput.style.height = "auto";
+    elements.rawInput.style.height = `${Math.min(elements.rawInput.scrollHeight, window.innerHeight * 0.4)}px`;
+    elements.clearButton.hidden = !elements.rawInput.value;
+    requestAnimationFrame(() => {
+      document.documentElement.style.setProperty("--composer-space", `${elements.composerShell.offsetHeight + 24}px`);
+    });
+  }
+
+  function updateThemeButtons() {
+    elements.themeButtons.forEach((button) => {
+      const active = button.dataset.themeChoice === settings.theme;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    });
+  }
+
+  async function installApp() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    elements.installButton.hidden = true;
+    elements.appearanceInstallButton.hidden = true;
   }
 
   async function refreshEntries() {
@@ -795,22 +876,26 @@
     editingEntryId = id;
     elements.entryDate.value = entry.date;
     elements.rawInput.value = entry.rawText;
-    elements.saveButton.textContent = "Zapisz zmiany";
+    elements.saveButton.textContent = "Zapisz";
+    elements.saveButton.setAttribute("aria-label", "Zapisz zmiany");
     elements.cancelEditButton.hidden = false;
     elements.editModeMessage.hidden = false;
     elements.editModeMessage.textContent = `Edytujesz wpis z dnia: ${entry.date}`;
     setMessage(elements.formMessage, "");
+    switchView("start");
+    resizeComposer();
     elements.rawInput.focus();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelEditEntry(clearMessage = true) {
     editingEntryId = null;
     elements.entryDate.value = localDateString();
     elements.rawInput.value = "";
-    elements.saveButton.textContent = "Zapisz wpis";
+    elements.saveButton.textContent = "↑";
+    elements.saveButton.setAttribute("aria-label", "Zapisz wpis");
     elements.cancelEditButton.hidden = true;
     elements.editModeMessage.hidden = true;
+    resizeComposer();
     if (clearMessage) setMessage(elements.formMessage, "");
   }
 
@@ -924,15 +1009,30 @@
 
   function bindEvents() {
     elements.saveButton.addEventListener("click", handleSave);
+    elements.rawInput.addEventListener("input", resizeComposer);
     elements.clearButton.addEventListener("click", () => {
       elements.rawInput.value = "";
       setMessage(elements.formMessage, "");
+      resizeComposer();
       elements.rawInput.focus();
     });
     elements.cancelEditButton.addEventListener("click", () => cancelEditEntry());
     elements.toggleAlertsButton.addEventListener("click", () => {
       alertsExpanded = !alertsExpanded;
       renderAlerts();
+    });
+    elements.menuButton.addEventListener("click", openMenu);
+    elements.closeMenuButton.addEventListener("click", closeMenu);
+    elements.menuBackdrop.addEventListener("click", closeMenu);
+    document.querySelectorAll("[data-view-target]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.viewTarget));
+    });
+    elements.themeButtons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        settings.theme = button.dataset.themeChoice;
+        await window.ketoDb.saveSettings(settings);
+        applyTheme();
+      });
     });
     elements.entriesList.addEventListener("click", (event) => {
       const editButton = event.target.closest("[data-edit-entry-id]");
@@ -964,22 +1064,19 @@
       renderAll();
       setMessage(elements.settingsMessage, "Przywrócono ustawienia domyślne.", "success");
     });
-    elements.installButton.addEventListener("click", async () => {
-      if (!deferredInstallPrompt) return;
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
-      elements.installButton.hidden = true;
-    });
+    elements.installButton.addEventListener("click", installApp);
+    elements.appearanceInstallButton.addEventListener("click", installApp);
     window.addEventListener("beforeinstallprompt", (event) => {
       if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) return;
       event.preventDefault();
       deferredInstallPrompt = event;
       elements.installButton.hidden = false;
+      elements.appearanceInstallButton.hidden = false;
     });
     window.addEventListener("appinstalled", () => {
       deferredInstallPrompt = null;
       elements.installButton.hidden = true;
+      elements.appearanceInstallButton.hidden = true;
     });
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (settings.theme === "system") applyTheme();
@@ -988,10 +1085,14 @@
 
   async function init() {
     Object.assign(elements, {
+      appMenu: document.querySelector("#app-menu"),
+      appearanceInstallButton: document.querySelector("#appearance-install-button"),
       backupMessage: document.querySelector("#backup-message"),
       alertsList: document.querySelector("#alerts-list"),
       cancelEditButton: document.querySelector("#cancel-edit-button"),
       clearButton: document.querySelector("#clear-button"),
+      closeMenuButton: document.querySelector("#close-menu-button"),
+      composerShell: document.querySelector(".composer-shell"),
       eatingWindowMessage: document.querySelector("#eating-window-message"),
       editModeMessage: document.querySelector("#edit-mode-message"),
       emptyTemplate: document.querySelector("#empty-entries-template"),
@@ -1003,6 +1104,8 @@
       importButton: document.querySelector("#import-button"),
       importInput: document.querySelector("#import-input"),
       installButton: document.querySelector("#install-button"),
+      menuBackdrop: document.querySelector("#menu-backdrop"),
+      menuButton: document.querySelector("#menu-button"),
       rawInput: document.querySelector("#raw-input"),
       resetSettingsButton: document.querySelector("#reset-settings-button"),
       saveButton: document.querySelector("#save-button"),
@@ -1010,13 +1113,17 @@
       settingsForm: document.querySelector("#settings-form"),
       settingsMessage: document.querySelector("#settings-message"),
       storageStatus: document.querySelector("#storage-status"),
+      startAlertsList: document.querySelector("#start-alerts-list"),
+      startStatus: document.querySelector("#start-status"),
       summarySections: document.querySelector("#summary-sections"),
       themeColorMeta: document.querySelector("#theme-color-meta"),
       tomorrowPlanList: document.querySelector("#tomorrow-plan-list"),
       toggleAlertsButton: document.querySelector("#toggle-alerts-button"),
+      themeButtons: [...document.querySelectorAll("[data-theme-choice]")],
     });
 
     elements.entryDate.value = localDateString();
+    resizeComposer();
     bindEvents();
     registerServiceWorker();
     requestPersistentStorage();
@@ -1026,6 +1133,7 @@
       applyTheme();
       renderSettings();
       await refreshEntries();
+      switchView(currentView);
     } catch (error) {
       console.error(error);
       setMessage(elements.formMessage, "Nie udało się otworzyć lokalnej bazy danych.", "error");

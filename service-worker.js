@@ -1,4 +1,4 @@
-const CACHE_NAME = "bilans-v5";
+const CACHE_NAME = "bilans-mobile-shell-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
