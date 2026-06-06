@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta id="theme-color-meta" name="theme-color" content="#f1f5f2">
+    <meta name="description" content="Lokalny kontroler keto działający offline.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css">
+    <title>Bilans</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Lokalnie i offline</p>
+        <h1>Bilans</h1>
+      </div>
+      <button id="install-button" class="button secondary compact" type="button" hidden>
+        Dodaj do telefonu
+      </button>
+    </header>
+
+    <main>
+      <section class="card entry-card" aria-labelledby="new-entry-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Nowy wpis</p>
+            <h2 id="new-entry-heading">Wklej dane z Gema</h2>
+          </div>
+          <label class="date-field">
+            <span>Data wpisu</span>
+            <input id="entry-date" type="date" required>
+          </label>
+        </div>
+
+        <p id="edit-mode-message" class="edit-mode-message" hidden></p>
+        <label class="sr-only" for="raw-input">Wklej dane z Gema</label>
+        <textarea
+          id="raw-input"
+          rows="13"
+          placeholder="kalorie: 850&#10;bialko: 62&#10;tluszcz: 58&#10;wegle_netto: 9&#10;&#10;tluste_ryby"
+          spellcheck="false"
+        ></textarea>
+
+        <div class="button-row">
+          <button id="save-button" class="button primary" type="button">Zapisz wpis</button>
+          <button id="clear-button" class="button secondary" type="button">Wyczyść pole</button>
+          <button id="cancel-edit-button" class="button secondary" type="button" hidden>Anuluj edycję</button>
+        </div>
+        <p id="form-message" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card alerts-card" aria-labelledby="alerts-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Spokojny przegląd</p>
+            <h2 id="alerts-heading">Co domknąć</h2>
+          </div>
+        </div>
+        <p id="eating-window-message" class="window-message"></p>
+        <div id="alerts-list" class="alerts-list"></div>
+        <button id="toggle-alerts-button" class="button secondary alerts-toggle" type="button" hidden>Pokaż więcej</button>
+        <div class="tomorrow-plan">
+          <h3>Plan na jutro</h3>
+          <div id="tomorrow-plan-list" class="tomorrow-plan-list"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="summary-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Realizacja celów</p>
+            <h2 id="summary-heading">Podsumowania</h2>
+          </div>
+        </div>
+        <div id="summary-sections" class="summary-sections"></div>
+      </section>
+
+      <section class="card" aria-labelledby="entries-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Historia</p>
+            <h2 id="entries-heading">Ostatnie wpisy</h2>
+          </div>
+          <span id="entry-count" class="count-badge">0</span>
+        </div>
+        <div id="entries-list" class="entries-list"></div>
+      </section>
+
+      <details class="card settings-card">
+        <summary>
+          <span>
+            <span class="eyebrow">Twoje cele</span>
+            <strong>Ustawienia</strong>
+          </span>
+          <span class="summary-hint">Rozwiń</span>
+        </summary>
+        <form id="settings-form">
+          <div id="settings-fields" class="settings-fields"></div>
+          <div class="button-row">
+            <button class="button primary" type="submit">Zapisz ustawienia</button>
+            <button id="reset-settings-button" class="button secondary" type="button">Przywróć domyślne</button>
+          </div>
+          <p id="settings-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+      </details>
+
+      <section class="card backup-card" aria-labelledby="backup-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Kopia zapasowa</p>
+            <h2 id="backup-heading">Eksport i import</h2>
+          </div>
+        </div>
+        <p class="muted">
+          Dane są tylko na tym urządzeniu. Regularnie eksportuj plik JSON.
+        </p>
+        <div class="button-row">
+          <button id="export-button" class="button primary" type="button">Eksportuj dane</button>
+          <button id="import-button" class="button secondary" type="button">Importuj dane</button>
+          <input id="import-input" type="file" accept="application/json,.json" hidden>
+        </div>
+        <p id="backup-message" class="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="storage-note" aria-label="Status pamięci">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="storage-status">Sprawdzanie pamięci trwałej…</span>
+      </section>
+    </main>
+
+    <template id="empty-entries-template">
+      <div class="empty-state">
+        <strong>Brak wpisów</strong>
+        <span>Dodaj pierwszy wpis, aby zobaczyć podsumowania.</span>
+      </div>
+    </template>
+
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
