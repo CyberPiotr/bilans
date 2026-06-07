@@ -2,9 +2,10 @@
   "use strict";
 
   const DB_NAME = "keto_tracker_db";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const ENTRIES_STORE = "entries";
   const SETTINGS_STORE = "settings";
+  const CUSTOM_DISHES_STORE = "customDishes";
   const SETTINGS_ID = "user-settings";
 
   function openDatabase() {
@@ -20,6 +21,9 @@
         }
         if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
           db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(CUSTOM_DISHES_STORE)) {
+          db.createObjectStore(CUSTOM_DISHES_STORE, { keyPath: "id" });
         }
       };
 
@@ -108,6 +112,47 @@
     return uniqueEntries.length;
   }
 
+  async function saveCustomDish(dish) {
+    return runTransaction(CUSTOM_DISHES_STORE, "readwrite", (store) => store.put(dish));
+  }
+
+  async function deleteCustomDish(id) {
+    return runTransaction(CUSTOM_DISHES_STORE, "readwrite", (store) => store.delete(id));
+  }
+
+  async function getAllCustomDishes() {
+    const db = await openDatabase();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(CUSTOM_DISHES_STORE, "readonly");
+      const request = transaction.objectStore(CUSTOM_DISHES_STORE).getAll();
+
+      request.onsuccess = () => {
+        db.close();
+        resolve(request.result);
+      };
+      request.onerror = () => {
+        db.close();
+        reject(request.error);
+      };
+    });
+  }
+
+  async function importCustomDishes(dishes) {
+    const existing = await getAllCustomDishes();
+    const existingIds = new Set(existing.map((dish) => dish.id));
+    const uniqueDishes = dishes.filter((dish) => {
+      if (!dish.id || existingIds.has(dish.id)) return false;
+      existingIds.add(dish.id);
+      return true;
+    });
+    if (uniqueDishes.length === 0) return 0;
+    await runTransaction(CUSTOM_DISHES_STORE, "readwrite", (store) => {
+      uniqueDishes.forEach((dish) => store.add(dish));
+    });
+    return uniqueDishes.length;
+  }
+
   async function getSettings() {
     const db = await openDatabase();
 
@@ -135,10 +180,14 @@
   }
 
   window.ketoDb = {
+    deleteCustomDish,
     deleteEntry,
+    getAllCustomDishes,
     getAllEntries,
     getSettings,
+    importCustomDishes,
     importEntries,
+    saveCustomDish,
     saveEntry,
     saveSettings,
   };

@@ -17,10 +17,11 @@
         <span></span><span></span><span></span>
       </button>
       <button class="brand-button" type="button" data-view-target="start" aria-label="Przejdź do Startu">
-        <span class="brand-mark">B</span>
-        <span>Bilans</span>
+        <img class="brand-logo" src="icons/icon-192.png" alt="">
+        <span>VitaTrack</span>
       </button>
-      <button id="install-button" class="install-button" type="button" hidden>Dodaj</button>
+      <button id="top-add-button" class="top-add-button" type="button">Dodaj</button>
+      <button id="install-button" class="install-button top-install-button" type="button" hidden>Dodaj do telefonu</button>
     </header>
 
     <div id="menu-backdrop" class="menu-backdrop" hidden></div>
@@ -34,9 +35,10 @@
       </div>
       <nav class="menu-nav">
         <button type="button" data-view-target="start">Start</button>
-        <button type="button" data-view-target="alerts">Co domknąć</button>
+        <button type="button" data-view-target="alerts">Co warto</button>
         <button type="button" data-view-target="progress">Realizacja celów</button>
         <button type="button" data-view-target="history">Historia</button>
+        <button type="button" data-view-target="dishes">Moje dania</button>
         <button type="button" data-view-target="goals">Moje cele</button>
         <button type="button" data-view-target="backup">Kopia zapasowa</button>
         <button type="button" data-view-target="appearance">Ustawienia / Wygląd</button>
@@ -49,46 +51,26 @@
 
     <main class="app-content">
       <section class="app-view active" data-view="start" aria-labelledby="start-title">
-        <div class="start-hero">
-          <span class="eyebrow">Dzisiaj</span>
-          <h1 id="start-title">Twój bilans dnia</h1>
-          <p id="start-status" class="start-status">Wklej dane z Gema, a Bilans zapisze wpis i przeliczy cele.</p>
-        </div>
-
-        <button class="surface-card shortcut-card" type="button" data-view-target="alerts">
-          <span class="shortcut-topline">
-            <span>Do domknięcia</span>
-            <span aria-hidden="true">→</span>
-          </span>
-          <span id="start-alerts-list" class="start-alerts-list"></span>
-        </button>
-
-        <div class="start-grid">
-          <button class="mini-card" type="button" data-view-target="progress">
-            <span class="mini-icon">◎</span>
-            <strong>Realizacja celów</strong>
-            <span>Sprawdź postęp</span>
-          </button>
-          <button class="mini-card" type="button" data-view-target="history">
-            <span class="mini-icon">↺</span>
-            <strong>Historia</strong>
-            <span><span id="entry-count">0</span> wpisów</span>
-          </button>
+        <h1 id="start-title" class="sr-only">VitaTrack</h1>
+        <section class="home-progress-card" aria-label="Szybki podgląd realizacji celów">
+          <div id="home-progress-list" class="home-progress-list"></div>
+        </section>
+        <div id="home-period-switcher" class="home-period-switcher" role="tablist" aria-label="Zakres podsumowania">
+          <button class="active" type="button" data-home-days="1" role="tab" aria-selected="true">Dzisiaj</button>
+          <button type="button" data-home-days="3" role="tab" aria-selected="false">3 dni</button>
+          <button type="button" data-home-days="7" role="tab" aria-selected="false">7 dni</button>
         </div>
       </section>
 
       <section class="app-view" data-view="alerts" aria-labelledby="alerts-heading">
         <header class="view-header">
-          <span class="eyebrow">Spokojny przegląd</span>
-          <h1 id="alerts-heading">Co domknąć</h1>
+          <span class="eyebrow">Praktyczne podpowiedzi</span>
+          <h1 id="alerts-heading">Co warto dziś zjeść?</h1>
           <p id="eating-window-message" class="view-lead"></p>
         </header>
         <div id="alerts-list" class="alerts-list"></div>
+        <div id="worth-notes" class="worth-notes"></div>
         <button id="toggle-alerts-button" class="button secondary alerts-toggle" type="button" hidden>Pokaż więcej</button>
-        <section class="surface-card tomorrow-plan">
-          <h2>Plan na jutro</h2>
-          <div id="tomorrow-plan-list" class="tomorrow-plan-list"></div>
-        </section>
       </section>
 
       <section class="app-view" data-view="progress" aria-labelledby="progress-heading">
@@ -104,9 +86,19 @@
         <header class="view-header">
           <span class="eyebrow">Zapisane lokalnie</span>
           <h1 id="history-heading">Historia</h1>
-          <p class="view-lead">Wpisy możesz rozwinąć, edytować lub usunąć.</p>
+          <p class="view-lead"><span id="entry-count">0</span> wpisów. Możesz je rozwinąć, edytować lub usunąć.</p>
         </header>
         <div id="entries-list" class="entries-list"></div>
+      </section>
+
+      <section class="app-view" data-view="dishes" aria-labelledby="dishes-heading">
+        <header class="view-header">
+          <span class="eyebrow">Zapisane przepisy</span>
+          <h1 id="dishes-heading">Moje dania</h1>
+          <p class="view-lead">Dodaj porcję do bilansu albo zaktualizuj zapisany format z Gema.</p>
+        </header>
+        <div id="dishes-list" class="dishes-list"></div>
+        <p id="dishes-message" class="message" role="status" aria-live="polite"></p>
       </section>
 
       <section class="app-view" data-view="goals" aria-labelledby="goals-heading">
@@ -166,10 +158,10 @@
     <section class="composer-shell" aria-label="Dodaj lub edytuj wpis">
       <div class="composer-meta">
         <p id="edit-mode-message" class="edit-mode-message" hidden></p>
-        <label class="composer-date">
-          <span>Data</span>
-          <input id="entry-date" type="date" required>
-        </label>
+        <button id="date-picker-button" class="date-picker-button" type="button" aria-label="Wybierz datę wpisu" title="Wybierz datę">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8h2m3 0h2m3 0h1m-11 4h2m3 0h2m3 0h1"/></svg>
+        </button>
+        <input id="entry-date" class="date-input-hidden" type="date" required>
       </div>
       <div class="composer">
         <label class="sr-only" for="raw-input">Wklej dane z Gema</label>
@@ -181,6 +173,10 @@
         <button id="cancel-edit-button" class="text-button" type="button" hidden>Anuluj edycję</button>
         <p id="form-message" class="message" role="status" aria-live="polite"></p>
       </div>
+      <p class="composer-credit">
+        Zaprojektowane przez
+        <a href="https://cyberpiotr.pl/" target="_blank" rel="noopener noreferrer">CyberPiotr</a>
+      </p>
     </section>
 
     <template id="empty-entries-template">

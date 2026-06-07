@@ -1,4 +1,4 @@
-const CACHE_NAME = "bilans-mobile-shell-v6";
+const CACHE_NAME = "vitatrack-custom-dishes-v11";
 const APP_SHELL = [
   "./",
   "./index.html",

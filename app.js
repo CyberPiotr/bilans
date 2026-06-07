@@ -59,6 +59,8 @@
     "orzechy_pestki",
   ];
 
+  const AUXILIARY_TAGS = ["fermentowane", "suplement", "wysokie_wegle"];
+
   const TAG_ALIASES = {
     jaja: ["jaja", "jajka", "jajko"],
     tluste_ryby: ["tluste_ryby", "tluste ryby", "makrela", "losos", "sledz", "sardynki", "sardynka"],
@@ -89,6 +91,9 @@
       "orzechy_pestki", "orzechy", "pestki", "pestki dyni", "slonecznik", "chia",
       "siemie lniane", "migdaly", "orzechy wloskie", "orzechy brazylijskie",
     ],
+    fermentowane: ["fermentowane"],
+    suplement: ["suplement"],
+    wysokie_wegle: ["wysokie_wegle", "wysokie wegle"],
   };
 
   const LABELS = {
@@ -121,7 +126,60 @@
     zielone_warzywa: "Zielone warzywa",
     kiszonki: "Kiszonki",
     orzechy_pestki: "Orzechy i pestki",
+    fermentowane: "Fermentowane",
+    suplement: "Suplement",
+    wysokie_wegle: "Wysokie węgle",
   };
+
+  const FOOD_SUGGESTIONS = [
+    foodSuggestion("Awokado", "awokado", ["potas", "witamina_e", "tluszcz", "kalorie"]),
+    foodSuggestion("Pomidor", "pomidor", ["potas"]),
+    foodSuggestion("Buraki", "buraki", ["potas", "blonnik"]),
+    foodSuggestion("Ziemniaki", "ziemniaki", ["potas"]),
+    foodSuggestion("Szpinak", "szpinak", ["potas", "magnez", "blonnik"], ["zielone_warzywa"]),
+    foodSuggestion("Pestki dyni", "pestki-dyni", ["magnez", "cynk", "blonnik"], ["orzechy_pestki"]),
+    foodSuggestion("Kakao", "kakao", ["magnez"]),
+    foodSuggestion("Migdały", "migdaly", ["magnez", "witamina_e", "blonnik"], ["orzechy_pestki"]),
+    foodSuggestion("Kasza gryczana", "kasza-gryczana", ["magnez", "blonnik"]),
+    foodSuggestion("Sól jodowana", "sol-jodowana", ["sod", "jod"]),
+    foodSuggestion("Bulion", "bulion", ["sod"]),
+    foodSuggestion("Kiszonki", "kiszonki", ["sod", "blonnik"], ["kiszonki"]),
+    foodSuggestion("Ogórki kiszone", "ogorki-kiszone", ["sod", "blonnik"], ["kiszonki"]),
+    foodSuggestion("Kapusta kiszona", "kapusta-kiszona", ["sod", "blonnik"], ["kiszonki"]),
+    foodSuggestion("Makrela", "makrela", ["omega3_epa_dha", "witamina_d3", "selen", "jod", "bialko"], ["tluste_ryby", "owoce_morza_ryby_morskie"]),
+    foodSuggestion("Sardynki", "sardynki", ["omega3_epa_dha", "witamina_d3", "selen", "jod", "bialko"], ["tluste_ryby", "owoce_morza_ryby_morskie"]),
+    foodSuggestion("Śledź", "sledz", ["omega3_epa_dha", "witamina_d3", "selen", "jod", "bialko"], ["tluste_ryby", "owoce_morza_ryby_morskie"]),
+    foodSuggestion("Tran", "tran", ["omega3_epa_dha", "witamina_d3", "witamina_a"]),
+    foodSuggestion("Łosoś", "losos", ["omega3_epa_dha", "witamina_d3", "selen", "bialko"], ["tluste_ryby", "owoce_morza_ryby_morskie"]),
+    foodSuggestion("Siemię lniane", "siemie-lniane", ["blonnik", "magnez"], ["orzechy_pestki"]),
+    foodSuggestion("Chia", "chia", ["blonnik", "magnez"], ["orzechy_pestki"]),
+    foodSuggestion("Warzywa krzyżowe", "warzywa-krzyzowe", ["blonnik", "potas", "wegle_netto"], ["warzywa_krzyzowe"]),
+    foodSuggestion("Brokuł", "brokul", ["blonnik", "potas", "wegle_netto"], ["warzywa_krzyzowe"]),
+    foodSuggestion("Kalafior", "kalafior", ["blonnik", "wegle_netto"], ["warzywa_krzyzowe"]),
+    foodSuggestion("Zielone warzywa", "zielone-warzywa", ["blonnik", "potas", "magnez", "wegle_netto"], ["zielone_warzywa"]),
+    foodSuggestion("Rukola", "rukola", ["potas", "blonnik", "wegle_netto"], ["zielone_warzywa"]),
+    foodSuggestion("Jajka", "jajka", ["bialko", "witamina_d3", "witamina_a", "witamina_k2", "zelazo", "cynk", "selen", "tluszcz", "kalorie", "wegle_netto"], ["jaja"]),
+    foodSuggestion("Omlet", "omlet", ["bialko", "tluszcz", "kalorie", "wegle_netto"], ["jaja"]),
+    foodSuggestion("Jajka na miękko", "jajka-na-miekko", ["bialko", "selen", "wegle_netto"], ["jaja"]),
+    foodSuggestion("Twaróg", "twarog", ["bialko"]),
+    foodSuggestion("Kurczak", "kurczak", ["bialko"]),
+    foodSuggestion("Wołowina", "wolowina", ["bialko", "zelazo", "cynk"]),
+    foodSuggestion("Ryby", "ryby", ["bialko", "selen", "jod", "wegle_netto"], ["owoce_morza_ryby_morskie"]),
+    foodSuggestion("Suplement D3", "suplement-d3", ["witamina_d3"]),
+    foodSuggestion("Słońce", "slonce", ["witamina_d3"]),
+    foodSuggestion("Wątróbka", "watrobka", ["witamina_a", "zelazo", "cynk", "bialko"], ["podroby"]),
+    foodSuggestion("Masło", "maslo", ["witamina_a", "tluszcz"]),
+    foodSuggestion("Sery", "sery", ["witamina_a", "bialko", "tluszcz", "kalorie"]),
+    foodSuggestion("Marchew", "marchew", ["witamina_a", "blonnik"]),
+    foodSuggestion("Pestki", "pestki", ["witamina_e", "magnez", "cynk"], ["orzechy_pestki"]),
+    foodSuggestion("Oliwa", "oliwa", ["witamina_e", "tluszcz"]),
+    foodSuggestion("Sery dojrzewające", "sery-dojrzewajace", ["witamina_k2", "bialko", "tluszcz"]),
+    foodSuggestion("Fermentowane produkty", "fermentowane", ["witamina_k2"], ["kiszonki"]),
+    foodSuggestion("Podroby", "podroby", ["witamina_a", "zelazo", "cynk", "bialko"], ["podroby"]),
+    foodSuggestion("Serca drobiowe", "serca-drobiowe", ["zelazo", "cynk", "bialko"], ["podroby"]),
+    foodSuggestion("Orzechy brazylijskie", "orzechy-brazylijskie", ["selen", "magnez"], ["orzechy_pestki"]),
+    foodSuggestion("Owoce morza", "owoce-morza", ["jod", "selen", "cynk", "bialko"], ["owoce_morza_ryby_morskie"]),
+  ];
 
   const SETTINGS_GROUPS = [
     { title: "Okno jedzenia", fields: [["eatingWindowStart", "Od", "time"], ["eatingWindowEnd", "Do", "time"]] },
@@ -154,15 +212,18 @@
 
   const elements = {};
   let entries = [];
+  let customDishes = [];
   let settings = getDefaultSettings();
   let deferredInstallPrompt = null;
   let alertsExpanded = false;
   let editingEntryId = null;
+  let editingDishId = null;
   let currentView = "start";
+  let homeProgressDays = 1;
 
   function getDefaultSettings() {
     return {
-      theme: "system",
+      theme: "light",
       eatingWindowStart: "10:00", eatingWindowEnd: "18:00",
       dailyKalorie: 2200, dailyBialko: 170, dailyTluszcz: 146, dailyWegleMax: 50,
       dailySodMin: 4000, dailySodMax: 5000, dailyPotasMin: 3500, dailyPotasMax: 4500,
@@ -225,6 +286,10 @@
     return { key, type: "range", min, max, unit, isTag: false };
   }
 
+  function foodSuggestion(name, imageKey, supports, tags = []) {
+    return { name, imageKey, supports, tags };
+  }
+
   function localDateString(date = new Date()) {
     const offset = date.getTimezoneOffset() * 60_000;
     return new Date(date.getTime() - offset).toISOString().slice(0, 10);
@@ -255,19 +320,120 @@
 
   function detectTags(rawText) {
     const searchableText = ` ${normalizeText(rawText)} `;
-    return TAGS.filter((tag) => TAG_ALIASES[tag].some((alias) => {
+    return [...TAGS, ...AUXILIARY_TAGS].filter((tag) => TAG_ALIASES[tag].some((alias) => {
       const normalizedAlias = normalizeText(alias);
       return searchableText.includes(` ${normalizedAlias} `);
     }));
   }
 
+  function parseProducts(rawText) {
+    const products = [];
+    let inProductsSection = false;
+
+    rawText.split(/\r?\n/).forEach((line) => {
+      const trimmedLine = line.trim();
+      const normalizedLine = normalizeText(trimmedLine);
+      if (normalizedLine === "produkty:") {
+        inProductsSection = true;
+        return;
+      }
+      if (inProductsSection && /^[^|]+:\s*$/.test(trimmedLine)) {
+        inProductsSection = false;
+        return;
+      }
+      if (!inProductsSection || !trimmedLine) return;
+
+      const match = trimmedLine.match(/^([^|]+?)\s*\|\s*([-+]?\d+(?:[.,]\d+)?)\s*g\b/i);
+      if (!match) return;
+      const amountG = Number.parseFloat(match[2].replace(",", "."));
+      if (!Number.isFinite(amountG)) return;
+      products.push({ name: match[1].trim(), amountG });
+    });
+
+    return products;
+  }
+
+  function isCustomDishText(rawText) {
+    return rawText.split(/\r?\n/).some((line) => normalizeText(line) === "typ: danie wieloskladnikowe");
+  }
+
+  function parseNamedValue(rawText, key) {
+    const normalizedKey = normalizeText(key);
+    const line = rawText.split(/\r?\n/).find((item) => normalizeText(item).startsWith(`${normalizedKey}:`));
+    if (!line) return "";
+    return line.slice(line.indexOf(":") + 1).trim();
+  }
+
+  function parseNutrientSection(rawText, sectionName) {
+    const data = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, 0]));
+    const detectedFields = new Set();
+    let inSection = false;
+
+    rawText.split(/\r?\n/).forEach((line) => {
+      const normalizedLine = normalizeText(line);
+      if (normalizedLine === `${normalizeText(sectionName)}:`) {
+        inSection = true;
+        return;
+      }
+      if (inSection && /^[^|]+:\s*$/.test(line.trim())) {
+        inSection = false;
+        return;
+      }
+      if (!inSection || !normalizedLine) return;
+      Object.entries(NUTRIENT_ALIASES).some(([key, aliases]) => aliases.some((alias) => {
+        const aliasPattern = escapeRegExp(normalizeText(alias)).replace(/\s+/g, "\\s+");
+        const match = normalizedLine.match(new RegExp(`^${aliasPattern}\\s*:\\s*([-+]?\\d+(?:[.,]\\d+)?)`));
+        if (!match) return false;
+        data[key] = Number.parseFloat(match[1].replace(",", "."));
+        detectedFields.add(key);
+        return true;
+      }));
+    });
+    return { data, detectedCount: detectedFields.size };
+  }
+
+  function parseCustomDish(rawText) {
+    if (!isCustomDishText(rawText)) return null;
+    const id = parseNamedValue(rawText, "id");
+    const name = parseNamedValue(rawText, "nazwa");
+    const totalMassG = Number.parseFloat(parseNamedValue(rawText, "masa_calkowita_g").replace(",", "."));
+    const total = parseNutrientSection(rawText, "calosc");
+    if (!id || !name || !Number.isFinite(totalMassG) || totalMassG <= 0 || total.detectedCount === 0) return null;
+
+    const per100g = parseNutrientSection(rawText, "na_100g");
+    const per100gData = per100g.detectedCount > 0
+      ? per100g.data
+      : Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, total.data[key] / totalMassG * 100]));
+    return {
+      id,
+      name,
+      totalMassG,
+      massSource: parseNamedValue(rawText, "masa_zrodlo"),
+      portionCalculation: parseNamedValue(rawText, "liczenie_porcji"),
+      totalData: total.data,
+      per100gData,
+      tags: detectTags(rawText),
+      products: parseProducts(rawText),
+      rawText,
+    };
+  }
+
   function parseNutritionText(rawText) {
     const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, 0]));
     const detectedFields = new Set();
+    let inProductsSection = false;
 
     rawText.split(/\r?\n/).forEach((line) => {
       const normalizedLine = normalizeText(line);
       if (!normalizedLine) return;
+      if (normalizedLine === "produkty:") {
+        inProductsSection = true;
+        return;
+      }
+      if (inProductsSection && /^[^|]+:\s*$/.test(line.trim())) {
+        inProductsSection = false;
+      }
+      if (inProductsSection) return;
 
       const symbolMatch = normalizedLine.match(/^(na|k)\s*:\s*([-+]?\d+(?:[.,]\d+)?)/);
       if (symbolMatch) {
@@ -296,6 +462,7 @@
     return {
       parsedData,
       tags: detectTags(rawText),
+      products: parseProducts(rawText),
       detectedCount: detectedFields.size,
     };
   }
@@ -307,8 +474,8 @@
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
-  function createUpdatedEntry(existingEntry, date, rawText, parsedData, tags, updatedAt = new Date().toISOString()) {
-    return { ...existingEntry, date, rawText, parsedData, tags, updatedAt };
+  function createUpdatedEntry(existingEntry, date, rawText, parsedData, tags, products, updatedAt = new Date().toISOString()) {
+    return { ...existingEntry, date, rawText, parsedData, tags, products, updatedAt };
   }
 
   function formatNumber(value) {
@@ -332,6 +499,46 @@
 
   function sumNutrient(periodEntries, key) {
     return periodEntries.reduce((sum, entry) => sum + Number(entry.parsedData?.[key] || 0), 0);
+  }
+
+  function renderHomeProgress() {
+    const homeLabels = { wegle_netto: "Węgle", omega3_epa_dha: "Omega-3" };
+    const group = getGoalGroups().find(({ days }) => days === homeProgressDays);
+    if (!group) return;
+    const periodEntries = getEntriesForDays(homeProgressDays);
+    elements.homeProgressList.replaceChildren();
+    group.goals.forEach((target) => {
+      const value = sumNutrient(periodEntries, target.key);
+      const primaryTarget = target.type === "range" ? target.min : target.value;
+      const exceeded = getStatus(value, target).className === "exceeded";
+      const percent = primaryTarget > 0 ? Math.min(100, (value / primaryTarget) * 100) : 0;
+      const row = document.createElement("div");
+      row.className = `home-progress-row${exceeded ? " exceeded" : ""}`;
+      const top = document.createElement("div");
+      top.className = "home-progress-top";
+      const name = document.createElement("strong");
+      name.textContent = homeLabels[target.key] || LABELS[target.key];
+      const amount = document.createElement("span");
+      amount.textContent = `${formatNumber(value)} ${target.unit} / ${getTargetText(target)}`;
+      top.append(name, amount);
+      const track = document.createElement("div");
+      track.className = "home-progress-track";
+      track.setAttribute("role", "progressbar");
+      track.setAttribute("aria-label", LABELS[target.key]);
+      track.setAttribute("aria-valuemin", "0");
+      track.setAttribute("aria-valuemax", String(primaryTarget));
+      track.setAttribute("aria-valuenow", String(value));
+      const fill = document.createElement("span");
+      fill.style.width = `${percent}%`;
+      track.append(fill);
+      row.append(top, track);
+      elements.homeProgressList.append(row);
+    });
+    elements.homePeriodButtons.forEach((button) => {
+      const active = Number(button.dataset.homeDays) === homeProgressDays;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
   }
 
   function countTag(periodEntries, tag) {
@@ -392,153 +599,164 @@
     return current >= start || current <= end ? "during" : "before";
   }
 
-  function calculateAlerts() {
+  function getDataDaysCount() {
+    return new Set(entries.map((entry) => entry.date)).size;
+  }
+
+  function getWorthContext(key, days, exceeded) {
+    if (key === "wegle_netto") {
+      return exceeded ? "Dziś przyda się spokojniejszy wybór pod węgle." : "Węgle są blisko dzisiejszego limitu.";
+    }
+    if (days === 1) return "Dobry priorytet na dziś.";
+    if (days === 3) return "Dobrze uzupełnić po ostatnich dniach.";
+    if (days === 7) return "Warto uwzględnić w tym tygodniu.";
+    return "Warto częściej uwzględniać w najbliższych tygodniach.";
+  }
+
+  function renderWorthEmptyState(titleText, bodyText) {
+    const item = document.createElement("section");
+    item.className = "worth-empty";
+    const icon = document.createElement("span");
+    icon.className = "worth-empty-icon";
+    icon.textContent = "V";
+    const title = document.createElement("strong");
+    title.textContent = titleText;
+    const body = document.createElement("p");
+    body.textContent = bodyText;
+    item.append(icon, title, body);
+    elements.alertsList.append(item);
+  }
+
+  function renderWorthCard(suggestion) {
+    const card = document.createElement("article");
+    card.className = "worth-card";
+    const header = document.createElement("header");
+    const title = document.createElement("h2");
+    title.textContent = suggestion.label;
+    const context = document.createElement("p");
+    context.textContent = suggestion.context;
+    header.append(title, context);
+
+    const products = document.createElement("div");
+    products.className = "worth-products";
+    suggestion.products.forEach((product) => {
+      const tile = document.createElement("div");
+      tile.className = "worth-product";
+      tile.dataset.imageKey = product.imageKey;
+      const image = document.createElement("span");
+      image.className = "worth-product-image";
+      image.textContent = product.name.slice(0, 1).toLocaleUpperCase("pl");
+      const name = document.createElement("strong");
+      name.textContent = product.name;
+      tile.append(image, name);
+      products.append(tile);
+    });
+    card.append(header, products);
+    elements.alertsList.append(card);
+  }
+
+  function addWorthNote(text) {
+    const note = document.createElement("p");
+    note.className = "worth-note";
+    note.textContent = text;
+    elements.worthNotes.append(note);
+  }
+
+  function calculateWorthSuggestions() {
     const priorities = {
       sod: 1, potas: 1, magnez: 1, bialko: 2, kalorie: 2, wegle_netto: 2,
-      omega3_epa_dha: 3, blonnik: 3,
+      omega3_epa_dha: 3, blonnik: 3, tluszcz: 3,
     };
     const order = [
       "potas", "magnez", "sod", "bialko", "kalorie", "wegle_netto", "omega3_epa_dha", "blonnik",
       "witamina_d3", "witamina_a", "witamina_e", "witamina_k2", "zelazo", "cynk", "selen", "jod",
       "tluste_ryby", "podroby", "kiszonki", "warzywa_krzyzowe", "zielone_warzywa", "orzechy_pestki", "jaja",
+      "owoce_morza_ryby_morskie",
     ];
-    const detailAlerts = [];
-    getGoalGroups().forEach((group) => {
+    const dataDays = getDataDaysCount();
+    if (dataDays === 0) return [];
+    const needs = new Map();
+    const activeGroups = dataDays === 1 ? getGoalGroups().filter(({ days }) => days === 1) : getGoalGroups();
+
+    const addNeed = (target, group, exceeded = false) => {
+      const existing = needs.get(target.key);
+      const basePriority = priorities[target.key] || (group.days === 7 ? 4 : 5);
+      const priority = group.days === 30 && dataDays < 7 ? basePriority + 2 : basePriority;
+      const context = getWorthContext(target.key, group.days, exceeded);
+      if (!existing || priority < existing.priority) {
+        needs.set(target.key, { key: target.key, priority, context, periods: [group.days], exceeded });
+      } else {
+        existing.periods.push(group.days);
+        existing.exceeded ||= exceeded;
+      }
+    };
+
+    activeGroups.forEach((group) => {
       const periodEntries = getEntriesForDays(group.days);
       group.goals.forEach((target) => {
-        if (target.type === "count" || (group.days === 1 && target.key === "tluszcz")) return;
+        if (target.type === "count") return;
         const value = target.isTag ? countTag(periodEntries, target.key) : sumNutrient(periodEntries, target.key);
-        const status = getStatus(value, target);
-        if (status.label === "OK") return;
-        const priority = priorities[target.key] || (group.days === 7 ? 4 : 5);
-        if (status.label === "przekroczone") {
-          if (target.key === "wegle_netto") {
-            detailAlerts.push({
-              key: target.key, priority, exceeded: true, period: "today",
-              detail: `Dziś: ${formatNumber(value)} ${target.unit} / maks. ${formatNumber(target.value)} ${target.unit}.`,
-            });
-          }
+        if (target.type === "max") {
+          if (value >= target.value * 0.85) addNeed(target, group, value > target.value);
           return;
         }
         const minimum = target.type === "range" ? target.min : target.value;
-        const periodLabel = group.days === 1 ? "Dziś" : `Ostatnie ${group.days} dni`;
-        detailAlerts.push({
-          priority,
-          key: target.key,
-          period: group.days === 1 ? "today" : `days${group.days}`,
-          detail: target.isTag
-            ? `${periodLabel}: ${formatNumber(value)} / min. ${formatNumber(minimum)} wpisów.`
-            : `${periodLabel}: brakuje ok. ${formatNumber(Math.max(0, minimum - value))} ${target.unit}.`,
-        });
+        if (value < minimum) addNeed(target, group);
       });
     });
-    return groupAlertsByKey(detailAlerts).sort((a, b) =>
-      a.priority - b.priority || order.indexOf(a.key) - order.indexOf(b.key));
-  }
 
-  function groupAlertsByKey(detailAlerts) {
-    const groups = new Map();
-    detailAlerts.forEach((alert) => {
-      if (!groups.has(alert.key)) {
-        groups.set(alert.key, {
-          key: alert.key,
-          label: LABELS[alert.key],
-          priority: alert.priority,
-          exceeded: false,
-          periods: [],
-          details: [],
-        });
-      }
-      const group = groups.get(alert.key);
-      group.exceeded ||= Boolean(alert.exceeded);
-      group.periods.push(alert.period);
-      group.details.push(alert.detail);
-    });
-    return [...groups.values()].map((group) => {
-      if (group.exceeded) {
-        group.shortMessage = "Limit dzienny został przekroczony.";
-      } else if (group.periods.includes("today") && group.periods.includes("days3")) {
-        group.shortMessage = "Brakuje dziś i w skali 3 dni.";
-      } else if (group.periods.includes("today")) {
-        group.shortMessage = "Brakuje do celu dziennego.";
-      } else if (group.periods.includes("days30")) {
-        group.shortMessage = "Warto zaplanować w najbliższych dniach.";
-      } else {
-        group.shortMessage = "Warto uwzględnić w najbliższym planie.";
-      }
-      return group;
-    });
-  }
-
-  function getTomorrowPlan() {
-    const preferred = ["potas", "magnez", "sod", "omega3_epa_dha", "blonnik", "jod", "selen", "cynk", "witamina_d3", "tluste_ryby", "podroby", "kiszonki", "warzywa_krzyzowe"];
-    const missing = new Set(calculateAlerts().map((alert) => alert.key));
-    return preferred.filter((key) => missing.has(key)).slice(0, 3);
+    const activeKeys = new Set(needs.keys());
+    const activeTags = new Set([...needs.values()].filter((need) => order.indexOf(need.key) >= order.indexOf("tluste_ryby")).map((need) => need.key));
+    return [...needs.values()].map((need) => {
+      const products = FOOD_SUGGESTIONS
+        .filter((product) => product.supports.includes(need.key) || product.tags.includes(need.key))
+        .map((product) => ({
+          ...product,
+          score: product.supports.filter((key) => activeKeys.has(key)).length
+            + product.tags.filter((tag) => activeTags.has(tag)).length,
+        }))
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, "pl"))
+        .slice(0, 3);
+      return { ...need, label: LABELS[need.key], products, bestProductScore: products[0]?.score || 0 };
+    }).filter((suggestion) => suggestion.products.length > 0)
+      .sort((a, b) => a.priority - b.priority || b.bestProductScore - a.bestProductScore || order.indexOf(a.key) - order.indexOf(b.key));
   }
 
   function renderAlerts() {
-    const alerts = calculateAlerts();
+    const dataDays = getDataDaysCount();
+    const suggestions = calculateWorthSuggestions();
     elements.alertsList.replaceChildren();
-    elements.startAlertsList.replaceChildren();
-    if (alerts.length === 0) {
-      const item = document.createElement("div");
-      item.className = "alert-item";
-      item.textContent = "Najważniejsze cele są dziś pod kontrolą.";
-      elements.alertsList.append(item);
-      const chip = document.createElement("span");
-      chip.className = "priority-chip ok";
-      chip.textContent = "Pod kontrolą";
-      elements.startAlertsList.append(chip);
-    } else {
-      (alertsExpanded ? alerts : alerts.slice(0, 3)).forEach((alert) => {
-        const item = document.createElement("details");
-        item.className = `alert-item${alert.exceeded ? " exceeded" : ""}`;
-        const summary = document.createElement("summary");
-        const title = document.createElement("strong");
-        title.className = "alert-title";
-        title.textContent = alert.label;
-        const short = document.createElement("span");
-        short.className = "alert-short";
-        short.textContent = alert.shortMessage;
-        summary.append(title, short);
-        const details = document.createElement("ul");
-        details.className = "alert-details";
-        alert.details.forEach((detail) => {
-          const row = document.createElement("li");
-          row.textContent = detail;
-          details.append(row);
-        });
-        item.append(summary, details);
-        elements.alertsList.append(item);
-      });
-      alerts.slice(0, 3).forEach((alert) => {
-        const chip = document.createElement("span");
-        chip.className = `priority-chip${alert.exceeded ? " exceeded" : ""}`;
-        chip.textContent = alert.label;
-        elements.startAlertsList.append(chip);
-      });
+    elements.worthNotes.replaceChildren();
+
+    if (dataDays === 0) {
+      elements.eatingWindowMessage.textContent = "Po kilku wpisach zobaczysz tutaj, co warto uzupełnić.";
+      renderWorthEmptyState(
+        "Dodaj pierwszy wpis, a VitaTrack zacznie uczyć się Twojego rytmu odżywiania.",
+        "Po kilku wpisach zobaczysz tutaj, co warto uzupełnić.",
+      );
+      elements.toggleAlertsButton.hidden = true;
+      return;
     }
-    elements.toggleAlertsButton.hidden = alerts.length <= 3;
+
+    elements.eatingWindowMessage.textContent = dataDays === 1
+      ? "Masz już pierwszy dzień danych. Dodaj jeszcze 1–2 dni, żeby podpowiedzi były trafniejsze."
+      : "Trzy praktyczne pomysły wybrane na podstawie Twoich ostatnich wpisów.";
+
+    if (suggestions.length === 0) {
+      renderWorthEmptyState("Twój rytm wygląda dobrze.", "Dziś możesz kierować się apetytem i swoim planem.");
+    } else {
+      (alertsExpanded ? suggestions : suggestions.slice(0, 3)).forEach(renderWorthCard);
+    }
+
+    if (dataDays >= 2 && dataDays < 4) {
+      addWorthNote("Tygodniowe sugestie będą trafniejsze po kilku dniach używania.");
+    }
+    if (dataDays >= 2 && dataDays < 7) {
+      addWorthNote("Szersze nawyki żywieniowe ocenimy dokładniej po dłuższym używaniu aplikacji.");
+    }
+
+    elements.toggleAlertsButton.hidden = suggestions.length <= 3;
     elements.toggleAlertsButton.textContent = alertsExpanded ? "Pokaż mniej" : "Pokaż więcej";
-
-    const plan = getTomorrowPlan();
-    elements.tomorrowPlanList.replaceChildren();
-    (plan.length ? plan : ["Najważniejsze cele są pod kontrolą"]).forEach((key) => {
-      const item = document.createElement("div");
-      item.className = "tomorrow-plan-item";
-      item.textContent = LABELS[key] || key;
-      elements.tomorrowPlanList.append(item);
-    });
-
-    const names = alerts.slice(0, 3).map((alert) => alert.label.toLocaleLowerCase("pl"));
-    const list = names.length ? names.join(", ") : "najważniejsze cele";
-    const state = getEatingWindowState();
-    elements.eatingWindowMessage.textContent = state === "before"
-      ? `Okno jedzenia zaczyna się o ${settings.eatingWindowStart}. Dzisiaj warto zaplanować: ${list}.`
-      : state === "during"
-        ? `Do domknięcia w dzisiejszym oknie: ${list}.`
-        : `Okno jedzenia już minęło. Na jutro warto zaplanować: ${list}.`;
-    elements.startStatus.textContent = elements.eatingWindowMessage.textContent;
   }
 
   function renderSettings() {
@@ -733,19 +951,112 @@
         details.className = "entry-details";
         const detailsSummary = document.createElement("summary");
         detailsSummary.textContent = "Szczegóły wpisu";
+        details.append(detailsSummary);
+        const products = Array.isArray(entry.products) ? entry.products : [];
+        if (products.length) {
+          const productsSection = document.createElement("section");
+          productsSection.className = "entry-products";
+          const productsTitle = document.createElement("h3");
+          productsTitle.textContent = "Produkty";
+          const productsList = document.createElement("ul");
+          products.forEach((product) => {
+            const item = document.createElement("li");
+            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g`;
+            productsList.append(item);
+          });
+          productsSection.append(productsTitle, productsList);
+          details.append(productsSection);
+        }
         const raw = document.createElement("pre");
         raw.textContent = entry.rawText;
-        details.append(detailsSummary, raw);
+        details.append(raw);
         article.append(details);
 
         elements.entriesList.append(article);
       });
   }
 
+  function renderCustomDishes() {
+    elements.dishesList.replaceChildren();
+    if (customDishes.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state dish-empty";
+      const title = document.createElement("strong");
+      title.textContent = "Nie masz jeszcze zapisanych dań.";
+      const text = document.createElement("span");
+      text.textContent = "Wklej na ekranie głównym wynik z Gema od dań wieloskładnikowych, a pojawi się tutaj.";
+      empty.append(title, text);
+      elements.dishesList.append(empty);
+      return;
+    }
+
+    customDishes.slice().sort((a, b) => a.name.localeCompare(b.name, "pl")).forEach((dish) => {
+      const card = document.createElement("article");
+      card.className = "dish-card";
+      const header = document.createElement("header");
+      const title = document.createElement("h2");
+      title.textContent = dish.name;
+      const mass = document.createElement("span");
+      mass.textContent = `${formatNumber(dish.totalMassG)} g całość`;
+      header.append(title, mass);
+      const macro = document.createElement("p");
+      macro.className = "dish-macro";
+      macro.textContent = `${formatNumber(dish.per100gData?.kalorie)} kcal · ${formatNumber(dish.per100gData?.bialko)} g białka / 100 g`;
+      card.append(header, macro);
+
+      if (dish.tags?.length) {
+        const tags = document.createElement("div");
+        tags.className = "tag-list";
+        dish.tags.forEach((tag) => {
+          const chip = document.createElement("span");
+          chip.className = "tag";
+          chip.textContent = LABELS[tag] || tag;
+          tags.append(chip);
+        });
+        card.append(tags);
+      }
+
+      const portion = document.createElement("div");
+      portion.className = "dish-portion";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.inputMode = "decimal";
+      input.min = "1";
+      input.step = "1";
+      input.placeholder = "Porcja w gramach";
+      input.setAttribute("aria-label", `Porcja dania ${dish.name} w gramach`);
+      input.dataset.dishPortionId = dish.id;
+      const addButton = document.createElement("button");
+      addButton.className = "button primary";
+      addButton.type = "button";
+      addButton.textContent = "Dodaj";
+      addButton.dataset.addDishId = dish.id;
+      portion.append(input, addButton);
+
+      const actions = document.createElement("div");
+      actions.className = "dish-actions";
+      const edit = document.createElement("button");
+      edit.className = "button secondary";
+      edit.type = "button";
+      edit.textContent = "Edytuj";
+      edit.dataset.editDishId = dish.id;
+      const remove = document.createElement("button");
+      remove.className = "button dish-delete";
+      remove.type = "button";
+      remove.textContent = "Usuń";
+      remove.dataset.deleteDishId = dish.id;
+      actions.append(edit, remove);
+      card.append(portion, actions);
+      elements.dishesList.append(card);
+    });
+  }
+
   function renderAll() {
+    renderHomeProgress();
     renderSummaries();
     renderAlerts();
     renderEntries();
+    renderCustomDishes();
   }
 
   function setMessage(element, text, type = "") {
@@ -757,6 +1068,7 @@
     const target = document.querySelector(`[data-view="${viewName}"]`);
     if (!target) return;
     currentView = viewName;
+    document.body.dataset.currentView = viewName;
     document.querySelectorAll(".app-view").forEach((view) => view.classList.toggle("active", view === target));
     document.querySelectorAll("[data-view-target]").forEach((button) => {
       button.classList.toggle("active", button.dataset.viewTarget === viewName);
@@ -790,6 +1102,27 @@
     });
   }
 
+  function updateDatePickerLabel() {
+    const date = elements.entryDate.value || localDateString();
+    const label = `Data wpisu: ${formatDate(date)}`;
+    elements.datePickerButton.setAttribute("aria-label", label);
+    elements.datePickerButton.title = label;
+    elements.datePickerButton.classList.toggle("selected", date !== localDateString());
+  }
+
+  function openDatePicker() {
+    if (typeof elements.entryDate.showPicker === "function") {
+      elements.entryDate.showPicker();
+    } else {
+      elements.entryDate.click();
+    }
+  }
+
+  function focusComposer() {
+    switchView("start");
+    elements.rawInput.focus();
+  }
+
   function updateThemeButtons() {
     elements.themeButtons.forEach((button) => {
       const active = button.dataset.themeChoice === settings.theme;
@@ -808,19 +1141,52 @@
   }
 
   async function refreshEntries() {
-    entries = await window.ketoDb.getAllEntries();
+    [entries, customDishes] = await Promise.all([
+      window.ketoDb.getAllEntries(),
+      window.ketoDb.getAllCustomDishes(),
+    ]);
     renderAll();
+  }
+
+  async function saveCustomDishFromText(rawText) {
+    const parsedDish = parseCustomDish(rawText);
+    if (!parsedDish) {
+      setMessage(elements.formMessage, "Nie udało się rozpoznać dania wieloskładnikowego. Sprawdź format.", "error");
+      return;
+    }
+    const existingDish = customDishes.find((dish) => dish.id === parsedDish.id);
+    if (existingDish && !window.confirm("Danie o takim ID już istnieje. Nadpisać?")) return;
+    const now = new Date().toISOString();
+    const dish = {
+      ...parsedDish,
+      createdAt: existingDish?.createdAt || now,
+      updatedAt: now,
+    };
+    try {
+      await window.ketoDb.saveCustomDish(dish);
+      cancelEditEntry(false);
+      setMessage(elements.formMessage, "Danie zapisane w Moje dania.", "success");
+      await refreshEntries();
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.formMessage, "Nie udało się zapisać dania.", "error");
+    }
   }
 
   async function handleSave() {
     const rawText = elements.rawInput.value.trim();
-    const date = elements.entryDate.value;
 
     if (!rawText) {
       setMessage(elements.formMessage, "Wklej dane przed zapisaniem.", "error");
       elements.rawInput.focus();
       return;
     }
+    if (isCustomDishText(rawText)) {
+      await saveCustomDishFromText(rawText);
+      return;
+    }
+
+    const date = elements.entryDate.value;
 
     if (!date) {
       setMessage(elements.formMessage, "Wybierz datę wpisu.", "error");
@@ -828,7 +1194,7 @@
       return;
     }
 
-    const { parsedData, tags, detectedCount } = parseNutritionText(rawText);
+    const { parsedData, tags, products, detectedCount } = parseNutritionText(rawText);
     if (detectedCount === 0) {
       setMessage(
         elements.formMessage,
@@ -848,9 +1214,9 @@
         cancelEditEntry(false);
         return;
       }
-      entry = createUpdatedEntry(existingEntry, date, rawText, parsedData, tags);
+      entry = createUpdatedEntry(existingEntry, date, rawText, parsedData, tags, products);
     } else {
-      entry = { id: createId(), date, createdAt: new Date().toISOString(), rawText, parsedData, tags };
+      entry = { id: createId(), date, createdAt: new Date().toISOString(), rawText, parsedData, tags, products };
     }
 
     try {
@@ -875,6 +1241,7 @@
     }
     editingEntryId = id;
     elements.entryDate.value = entry.date;
+    updateDatePickerLabel();
     elements.rawInput.value = entry.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz zmiany");
@@ -887,9 +1254,27 @@
     elements.rawInput.focus();
   }
 
+  function startEditDish(id) {
+    const dish = customDishes.find((item) => item.id === id);
+    if (!dish) return;
+    editingDishId = id;
+    elements.rawInput.value = dish.rawText;
+    elements.saveButton.textContent = "Zapisz";
+    elements.saveButton.setAttribute("aria-label", "Zapisz danie");
+    elements.cancelEditButton.hidden = false;
+    elements.editModeMessage.hidden = false;
+    elements.editModeMessage.textContent = `Edytujesz danie: ${dish.name}`;
+    setMessage(elements.formMessage, "");
+    switchView("start");
+    resizeComposer();
+    elements.rawInput.focus();
+  }
+
   function cancelEditEntry(clearMessage = true) {
     editingEntryId = null;
+    editingDishId = null;
     elements.entryDate.value = localDateString();
+    updateDatePickerLabel();
     elements.rawInput.value = "";
     elements.saveButton.textContent = "↑";
     elements.saveButton.setAttribute("aria-label", "Zapisz wpis");
@@ -897,6 +1282,50 @@
     elements.editModeMessage.hidden = true;
     resizeComposer();
     if (clearMessage) setMessage(elements.formMessage, "");
+  }
+
+  async function addDishPortion(id) {
+    const dish = customDishes.find((item) => item.id === id);
+    const input = [...elements.dishesList.querySelectorAll("[data-dish-portion-id]")]
+      .find((item) => item.dataset.dishPortionId === id);
+    const portionG = Number.parseFloat(input?.value?.replace(",", "."));
+    if (!dish || !Number.isFinite(portionG) || portionG <= 0) {
+      setMessage(elements.dishesMessage, "Wpisz prawidłową porcję w gramach.", "error");
+      return;
+    }
+    const ratio = portionG / dish.totalMassG;
+    const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, Math.round((dish.totalData?.[key] || 0) * ratio)]));
+    const rawText = `Porcja dania własnego:\n${dish.id} | ${formatNumber(portionG)} g`;
+    const entry = {
+      id: createId(),
+      date: elements.entryDate.value || localDateString(),
+      createdAt: new Date().toISOString(),
+      rawText,
+      parsedData,
+      tags: [...(dish.tags || [])],
+      products: [{ name: dish.id, amountG: portionG, type: "custom_dish" }],
+    };
+    try {
+      await window.ketoDb.saveEntry(entry);
+      input.value = "";
+      setMessage(elements.dishesMessage, `Dodano ${formatNumber(portionG)} g dania do bilansu.`, "success");
+      await refreshEntries();
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.dishesMessage, "Nie udało się dodać porcji.", "error");
+    }
+  }
+
+  async function deleteCustomDish(id) {
+    if (!window.confirm("Usunąć to danie?")) return;
+    try {
+      await window.ketoDb.deleteCustomDish(id);
+      await refreshEntries();
+      setMessage(elements.dishesMessage, "Danie usunięte.", "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.dishesMessage, "Nie udało się usunąć dania.", "error");
+    }
   }
 
   async function handleDelete(id) {
@@ -916,12 +1345,16 @@
 
   async function handleExport() {
     try {
-      const allEntries = await window.ketoDb.getAllEntries();
+      const [allEntries, allCustomDishes] = await Promise.all([
+        window.ketoDb.getAllEntries(),
+        window.ketoDb.getAllCustomDishes(),
+      ]);
       const payload = {
         app: "Bilans",
-        version: 2,
+        version: 4,
         exportedAt: new Date().toISOString(),
         entries: allEntries,
+        customDishes: allCustomDishes,
         settings,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -933,7 +1366,7 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setMessage(elements.backupMessage, `Wyeksportowano ${allEntries.length} wpisów.`, "success");
+      setMessage(elements.backupMessage, `Wyeksportowano ${allEntries.length} wpisów i ${allCustomDishes.length} dań.`, "success");
     } catch (error) {
       console.error(error);
       setMessage(elements.backupMessage, "Nie udało się wyeksportować danych.", "error");
@@ -953,6 +1386,40 @@
     );
   }
 
+  function normalizeImportedEntry(entry) {
+    const products = Array.isArray(entry.products)
+      ? entry.products.filter((product) => product
+        && typeof product.name === "string"
+        && Number.isFinite(Number(product.amountG)))
+        .map((product) => ({ ...product, name: product.name, amountG: Number(product.amountG) }))
+      : [];
+    return { ...entry, products };
+  }
+
+  function isValidImportedDish(dish) {
+    return Boolean(
+      dish
+      && typeof dish.id === "string"
+      && typeof dish.name === "string"
+      && Number.isFinite(Number(dish.totalMassG))
+      && dish.totalData
+      && typeof dish.totalData === "object"
+      && typeof dish.rawText === "string",
+    );
+  }
+
+  function normalizeImportedDish(dish) {
+    return {
+      ...dish,
+      totalMassG: Number(dish.totalMassG),
+      tags: Array.isArray(dish.tags) ? dish.tags : [],
+      products: Array.isArray(dish.products) ? dish.products : [],
+      per100gData: dish.per100gData || Object.fromEntries(
+        NUTRIENT_KEYS.map((key) => [key, Number(dish.totalData?.[key] || 0) / Number(dish.totalMassG) * 100]),
+      ),
+    };
+  }
+
   async function handleImportFile(file) {
     try {
       const data = JSON.parse(await file.text());
@@ -961,8 +1428,11 @@
         throw new Error("Nieprawidłowy format pliku.");
       }
 
-      const validEntries = importedEntries.filter(isValidImportedEntry);
+      const validEntries = importedEntries.filter(isValidImportedEntry).map(normalizeImportedEntry);
       const importedCount = await window.ketoDb.importEntries(validEntries);
+      const importedDishes = Array.isArray(data.customDishes) ? data.customDishes : [];
+      const validDishes = importedDishes.filter(isValidImportedDish).map(normalizeImportedDish);
+      const importedDishCount = await window.ketoDb.importCustomDishes(validDishes);
       settings = { ...getDefaultSettings(), ...(data.settings || {}) };
       await window.ketoDb.saveSettings(settings);
       applyTheme();
@@ -970,7 +1440,7 @@
       await refreshEntries();
       setMessage(
         elements.backupMessage,
-        `Zaimportowano ${importedCount} nowych wpisów. Pominięto ${importedEntries.length - importedCount}.`,
+        `Zaimportowano ${importedCount} wpisów i ${importedDishCount} dań. Pominięto istniejące lub nieprawidłowe dane.`,
         "success",
       );
     } catch (error) {
@@ -1010,6 +1480,15 @@
   function bindEvents() {
     elements.saveButton.addEventListener("click", handleSave);
     elements.rawInput.addEventListener("input", resizeComposer);
+    elements.topAddButton.addEventListener("click", focusComposer);
+    elements.datePickerButton.addEventListener("click", openDatePicker);
+    elements.entryDate.addEventListener("change", updateDatePickerLabel);
+    elements.homePeriodButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        homeProgressDays = Number(button.dataset.homeDays);
+        renderHomeProgress();
+      });
+    });
     elements.clearButton.addEventListener("click", () => {
       elements.rawInput.value = "";
       setMessage(elements.formMessage, "");
@@ -1039,6 +1518,14 @@
       const deleteButton = event.target.closest("[data-delete-entry-id]");
       if (editButton) startEditEntry(editButton.dataset.editEntryId);
       if (deleteButton) handleDelete(deleteButton.dataset.deleteEntryId);
+    });
+    elements.dishesList.addEventListener("click", (event) => {
+      const addButton = event.target.closest("[data-add-dish-id]");
+      const editButton = event.target.closest("[data-edit-dish-id]");
+      const deleteButton = event.target.closest("[data-delete-dish-id]");
+      if (addButton) addDishPortion(addButton.dataset.addDishId);
+      if (editButton) startEditDish(editButton.dataset.editDishId);
+      if (deleteButton) deleteCustomDish(deleteButton.dataset.deleteDishId);
     });
     elements.exportButton.addEventListener("click", handleExport);
     elements.importButton.addEventListener("click", () => elements.importInput.click());
@@ -1093,6 +1580,9 @@
       clearButton: document.querySelector("#clear-button"),
       closeMenuButton: document.querySelector("#close-menu-button"),
       composerShell: document.querySelector(".composer-shell"),
+      datePickerButton: document.querySelector("#date-picker-button"),
+      dishesList: document.querySelector("#dishes-list"),
+      dishesMessage: document.querySelector("#dishes-message"),
       eatingWindowMessage: document.querySelector("#eating-window-message"),
       editModeMessage: document.querySelector("#edit-mode-message"),
       emptyTemplate: document.querySelector("#empty-entries-template"),
@@ -1101,6 +1591,8 @@
       entryDate: document.querySelector("#entry-date"),
       exportButton: document.querySelector("#export-button"),
       formMessage: document.querySelector("#form-message"),
+      homePeriodButtons: [...document.querySelectorAll("[data-home-days]")],
+      homeProgressList: document.querySelector("#home-progress-list"),
       importButton: document.querySelector("#import-button"),
       importInput: document.querySelector("#import-input"),
       installButton: document.querySelector("#install-button"),
@@ -1113,16 +1605,16 @@
       settingsForm: document.querySelector("#settings-form"),
       settingsMessage: document.querySelector("#settings-message"),
       storageStatus: document.querySelector("#storage-status"),
-      startAlertsList: document.querySelector("#start-alerts-list"),
-      startStatus: document.querySelector("#start-status"),
       summarySections: document.querySelector("#summary-sections"),
       themeColorMeta: document.querySelector("#theme-color-meta"),
-      tomorrowPlanList: document.querySelector("#tomorrow-plan-list"),
       toggleAlertsButton: document.querySelector("#toggle-alerts-button"),
+      topAddButton: document.querySelector("#top-add-button"),
       themeButtons: [...document.querySelectorAll("[data-theme-choice]")],
+      worthNotes: document.querySelector("#worth-notes"),
     });
 
     elements.entryDate.value = localDateString();
+    updateDatePickerLabel();
     resizeComposer();
     bindEvents();
     registerServiceWorker();
