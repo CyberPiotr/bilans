@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-custom-dishes-v11";
+const CACHE_NAME = "vitatrack-pwa-install-v12";
 const APP_SHELL = [
   "./",
   "./index.html",

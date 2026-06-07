@@ -1133,11 +1133,22 @@
 
   async function installApp() {
     if (!deferredInstallPrompt) return;
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt = null;
-    elements.installButton.hidden = true;
-    elements.appearanceInstallButton.hidden = true;
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } finally {
+      deferredInstallPrompt = null;
+      elements.installButton.hidden = true;
+      elements.appearanceInstallButton.hidden = true;
+    }
+  }
+
+  function showPwaMessage(text) {
+    elements.pwaMessage.textContent = text;
+    elements.pwaMessage.hidden = false;
+    window.setTimeout(() => {
+      elements.pwaMessage.hidden = true;
+    }, 3500);
   }
 
   async function refreshEntries() {
@@ -1564,6 +1575,8 @@
       deferredInstallPrompt = null;
       elements.installButton.hidden = true;
       elements.appearanceInstallButton.hidden = true;
+      setMessage(elements.formMessage, "Aplikacja zainstalowana.", "success");
+      showPwaMessage("Aplikacja zainstalowana.");
     });
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (settings.theme === "system") applyTheme();
@@ -1598,6 +1611,7 @@
       installButton: document.querySelector("#install-button"),
       menuBackdrop: document.querySelector("#menu-backdrop"),
       menuButton: document.querySelector("#menu-button"),
+      pwaMessage: document.querySelector("#pwa-message"),
       rawInput: document.querySelector("#raw-input"),
       resetSettingsButton: document.querySelector("#reset-settings-button"),
       saveButton: document.querySelector("#save-button"),

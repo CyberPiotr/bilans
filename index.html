@@ -20,9 +20,14 @@
         <img class="brand-logo" src="icons/icon-192.png" alt="">
         <span>VitaTrack</span>
       </button>
-      <button id="top-add-button" class="top-add-button" type="button">Dodaj</button>
-      <button id="install-button" class="install-button top-install-button" type="button" hidden>Dodaj do telefonu</button>
+      <div class="app-bar-actions">
+        <button id="install-button" class="top-action-button install-button" type="button" aria-label="Zainstaluj aplikację" title="Zainstaluj aplikację" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
+        </button>
+        <button id="top-add-button" class="top-action-button top-add-button" type="button" aria-label="Dodaj wpis" title="Dodaj wpis">+</button>
+      </div>
     </header>
+    <p id="pwa-message" class="pwa-message" role="status" aria-live="polite" hidden></p>
 
     <div id="menu-backdrop" class="menu-backdrop" hidden></div>
     <aside id="app-menu" class="app-menu" aria-label="Menu główne" aria-hidden="true">

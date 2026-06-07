@@ -113,7 +113,7 @@ h3 { margin-bottom: 8px; font-size: 1rem; }
   z-index: 20;
   top: 0;
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: calc(62px + env(safe-area-inset-top));
@@ -132,9 +132,39 @@ h3 { margin-bottom: 8px; font-size: 1rem; }
 .icon-button span { width: 19px; height: 2px; border-radius: 2px; background: currentColor; }
 .brand-button { display: flex; align-items: center; gap: 9px; justify-self: start; font-size: 1.08rem; font-weight: 850; }
 .brand-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
-.install-button { padding: 0 10px; color: var(--app-accent-strong); font-size: .78rem; font-weight: 800; }
-.top-install-button { display: none; }
-.top-add-button { padding: 0 8px; color: var(--app-text); font-size: .78rem; font-weight: 850; }
+.app-bar-actions { display: flex; align-items: center; gap: 4px; }
+.top-action-button {
+  display: grid;
+  width: 40px;
+  min-height: 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--app-text);
+}
+.top-action-button:hover, .top-action-button:focus-visible { background: var(--app-surface-soft); color: var(--app-accent-strong); }
+.top-action-button[hidden] { display: none; }
+.install-button { color: var(--app-accent-strong); }
+.install-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.top-add-button { font-size: 1.65rem; font-weight: 500; line-height: 1; }
+.pwa-message {
+  position: fixed;
+  z-index: 45;
+  top: calc(70px + env(safe-area-inset-top));
+  right: 14px;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 13px;
+  background: var(--app-surface);
+  color: var(--app-success);
+  box-shadow: var(--shadow-soft);
+  font-size: .74rem;
+  font-weight: 800;
+}
+.pwa-message[hidden] { display: none; }
 
 .menu-backdrop { position: fixed; z-index: 39; inset: 0; background: var(--app-overlay); }
 .app-menu {
