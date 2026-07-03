@@ -578,6 +578,34 @@
     return { ...source, badgeText: source.label || "Źródło nieznane", className: "unknown" };
   }
 
+  function getProductSourceLabel(product) {
+    const statusLabels = {
+      food_database: "baza",
+      food_database_proxy: "baza proxy",
+      ai_fallback_missing: "brak w bazie / AI fallback",
+      food_lookup_error: "błąd bazy",
+      custom_dish: "danie własne",
+      unknown: "źródło nieznane",
+    };
+    const sourceLabel = statusLabels[product?.dataSourceType] || null;
+    const matchedLabel = product?.matchedName ? `: ${product.matchedName}` : "";
+    return sourceLabel ? `${sourceLabel}${matchedLabel}` : "";
+  }
+
+  function getDishDataSourceInfo(dish) {
+    const source = dish?.dataSource || dish?.source;
+    if (!source || typeof source !== "object") {
+      return { label: "Składniki: źródło nieznane", className: "unknown" };
+    }
+    const type = source.type || "unknown";
+    if (type === "custom_dish_food_database") return { ...source, label: "Składniki: baza", className: "database" };
+    if (type === "custom_dish_food_database_proxy") return { ...source, label: "Składniki: baza/proxy", className: "proxy" };
+    if (type === "custom_dish_mixed_food_database_ai_fallback") return { ...source, label: "Składniki: baza + brak", className: "mixed" };
+    if (type === "custom_dish_missing") return { ...source, label: "Składniki: braki w bazie", className: "missing" };
+    if (type === "custom_dish_lookup_error") return { ...source, label: "Składniki: błąd bazy", className: "error" };
+    return { ...source, label: source.label || "Składniki: AI Parser", className: "unknown" };
+  }
+
   function formatNumber(value) {
     return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 }).format(value || 0);
   }
@@ -1086,17 +1114,8 @@
           const productsList = document.createElement("ul");
           products.forEach((product) => {
             const item = document.createElement("li");
-            const statusLabels = {
-              food_database: "baza",
-              food_database_proxy: "baza proxy",
-              ai_fallback_missing: "brak w bazie",
-              food_lookup_error: "błąd bazy",
-              custom_dish: "danie własne",
-              unknown: "źródło nieznane",
-            };
-            const sourceLabel = statusLabels[product.dataSourceType] || null;
-            const matchedLabel = product.matchedName ? `: ${product.matchedName}` : "";
-            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}${matchedLabel}` : ""}`;
+            const sourceLabel = getProductSourceLabel(product);
+            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}` : ""}`;
             productsList.append(item);
           });
           productsSection.append(productsTitle, productsList);
@@ -1138,6 +1157,29 @@
     }];
   }
 
+  function getDishReviewDate(dish) {
+    const value = String(dish.updatedAt || dish.createdAt || "").slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : localDateString();
+  }
+
+  function getDishMissingFoodProducts(dish) {
+    const products = Array.isArray(dish.products) ? dish.products : [];
+    return products
+      .map((product) => ({
+        name: String(product.name || "").trim() || "Nieznany składnik",
+        amountG: Number.isFinite(Number(product.amountG)) ? Number(product.amountG) : null,
+        lookupStatus: product.lookupStatus || null,
+        dataSourceType: product.dataSourceType || null,
+        matchedName: product.matchedName || null,
+        fdcId: product.fdcId ?? null,
+        matchType: product.matchType || null,
+        requiresConfirmation: product.requiresConfirmation === true,
+        query: product.query || product.name || null,
+        originalName: product.originalName || product.name || null,
+      }))
+      .filter((product) => product.lookupStatus === "not_found" || product.dataSourceType === "ai_fallback_missing");
+  }
+
   function getMissingFoodKey(product, entry = {}) {
     const name = String(product.name || product.query || product.originalName || entry.rawText || "Nieznany produkt").trim();
     const amount = product.amountG === null || product.amountG === undefined ? "" : String(product.amountG);
@@ -1165,6 +1207,7 @@
 
   function collectMissingFoods(sourceEntries = entries, options = {}) {
     const includeHidden = options.includeHidden === true;
+    const sourceDishes = Array.isArray(options.customDishes) ? options.customDishes : customDishes;
     const hiddenKeys = readHiddenMissingFoodKeys();
     const rows = new Map();
     sourceEntries.forEach((entry) => {
@@ -1203,6 +1246,51 @@
           row.lastUsedDate = entry.date;
           row.latestOriginalText = entry.rawText;
           row.latestEntryId = entry.id || null;
+        }
+        rows.set(key, row);
+      });
+    });
+
+    sourceDishes.forEach((dish) => {
+      const productsForReview = getDishMissingFoodProducts(dish);
+      if (!productsForReview.length) return;
+      const pseudoEntry = {
+        id: `dish:${dish.id}`,
+        createdAt: dish.createdAt || dish.updatedAt || "",
+        date: getDishReviewDate(dish),
+        rawText: `Moje danie: ${dish.name}`,
+      };
+      productsForReview.forEach((product) => {
+        const name = product.name || "Nieznany składnik";
+        const amountG = product.amountG;
+        const key = getMissingFoodKey(product, pseudoEntry);
+        if (!includeHidden && hiddenKeys.has(key)) return;
+        const row = rows.get(key) || {
+          key,
+          name,
+          amountG,
+          occurrences: 0,
+          lastUsedDate: pseudoEntry.date,
+          latestOriginalText: `Moje danie: ${dish.name}`,
+          sourceLabel: "Moje danie",
+          dishName: dish.name,
+          entryIds: [],
+          dishIds: [],
+          latestEntryId: null,
+          latestDishId: dish.id || null,
+          lookupStatus: product.lookupStatus || "not_found",
+          dataSourceType: product.dataSourceType || "ai_fallback_missing",
+          hidden: hiddenKeys.has(key),
+          note: "Wartości dania dotyczą całości przepisu, nie tego pojedynczego brakującego składnika.",
+        };
+
+        row.occurrences += 1;
+        row.dishIds.push(dish.id);
+        if (!row.lastUsedDate || pseudoEntry.date >= row.lastUsedDate) {
+          row.lastUsedDate = pseudoEntry.date;
+          row.latestOriginalText = `Moje danie: ${dish.name}`;
+          row.latestDishId = dish.id || null;
+          row.dishName = dish.name;
         }
         rows.set(key, row);
       });
@@ -1248,8 +1336,10 @@
       meta.className = "missing-food-meta";
       meta.textContent = [
         row.amountG === null ? "gramatura: brak" : `gramatura: ${formatNumber(row.amountG)} g`,
+        row.sourceLabel ? `źródło: ${row.sourceLabel}` : null,
+        row.dishName ? `danie: ${row.dishName}` : null,
         `ostatnio: ${formatDate(row.lastUsedDate)}`,
-      ].join(" · ");
+      ].filter(Boolean).join(" · ");
 
       const source = document.createElement("p");
       source.className = "missing-food-source";
@@ -1257,7 +1347,7 @@
 
       const note = document.createElement("p");
       note.className = "missing-food-note";
-      note.textContent = "Wartości AI dotyczą całego wpisu, nie pojedynczego brakującego składnika.";
+      note.textContent = row.note || "Wartości AI dotyczą całego wpisu, nie pojedynczego brakującego składnika.";
 
       const actions = document.createElement("div");
       actions.className = "missing-food-actions";
@@ -1272,12 +1362,15 @@
       remove.textContent = "Usuń z listy";
       // Obie akcje tylko ukrywają brak lokalnie; historia i IndexedDB zostają bez zmian.
       remove.dataset.dismissMissingFood = row.key;
-      const deleteEntry = document.createElement("button");
-      deleteEntry.className = "button danger";
-      deleteEntry.type = "button";
-      deleteEntry.textContent = "Usuń wpis z historii";
-      deleteEntry.dataset.deleteMissingEntryId = row.latestEntryId || "";
-      actions.append(dismiss, remove, deleteEntry);
+      actions.append(dismiss, remove);
+      if (row.latestEntryId) {
+        const deleteEntry = document.createElement("button");
+        deleteEntry.className = "button danger";
+        deleteEntry.type = "button";
+        deleteEntry.textContent = "Usuń wpis z historii";
+        deleteEntry.dataset.deleteMissingEntryId = row.latestEntryId;
+        actions.append(deleteEntry);
+      }
 
       item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
@@ -1312,6 +1405,12 @@
       macro.textContent = `${formatNumber(dish.per100gData?.kalorie)} kcal · ${formatNumber(dish.per100gData?.bialko)} g białka / 100 g`;
       card.append(header, macro);
 
+      const dishSource = getDishDataSourceInfo(dish);
+      const source = document.createElement("p");
+      source.className = `dish-source ${dishSource.className}`;
+      source.textContent = dishSource.label;
+      card.append(source);
+
       if (dish.tags?.length) {
         const tags = document.createElement("div");
         tags.className = "tag-list";
@@ -1322,6 +1421,23 @@
           tags.append(chip);
         });
         card.append(tags);
+      }
+
+      const products = Array.isArray(dish.products) ? dish.products : [];
+      if (products.length) {
+        const productsSection = document.createElement("section");
+        productsSection.className = "dish-products";
+        const productsTitle = document.createElement("h3");
+        productsTitle.textContent = "Składniki";
+        const productsList = document.createElement("ul");
+        products.forEach((product) => {
+          const item = document.createElement("li");
+          const sourceLabel = getProductSourceLabel(product);
+          item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}` : ""}`;
+          productsList.append(item);
+        });
+        productsSection.append(productsTitle, productsList);
+        card.append(productsSection);
       }
 
       const portion = document.createElement("div");
@@ -1916,6 +2032,82 @@
     };
   }
 
+  async function resolveDishIngredientsWithFoodLookup(products) {
+    if (!products.length) {
+      updateAiDebug({ foodLookupStatus: "brak składników dania" });
+      return {
+        products: [],
+        source: {
+          type: "ai_parser_dish",
+          label: "Składniki: brak danych food-lookup",
+          foodLookupStatus: null,
+          requiresConfirmation: false,
+        },
+      };
+    }
+
+    const resolvedProducts = [];
+    for (const product of products) {
+      try {
+        const result = await requestFoodLookup({
+          query: product.name,
+          amount_g: product.amountG,
+          variant: null,
+          fdc_id: null,
+          limit: 5,
+        });
+        resolvedProducts.push(createProductLookupMetadata(product, result));
+      } catch (error) {
+        console.warn("[Food Lookup] Dish ingredient lookup failed", product, error);
+        resolvedProducts.push(createProductLookupMetadata(product, null, error));
+      }
+    }
+
+    const hasMatched = resolvedProducts.some((product) => product.lookupStatus === "matched");
+    const hasMissing = resolvedProducts.some((product) => product.lookupStatus === "not_found");
+    const hasError = resolvedProducts.some((product) => product.lookupStatus === "error");
+    const usesProxy = resolvedProducts.some((product) => product.dataSourceType === "food_database_proxy" || product.requiresConfirmation === true);
+    let source;
+    if (hasError) {
+      source = {
+        type: "custom_dish_lookup_error",
+        label: "Składniki: błąd bazy",
+        foodLookupStatus: "error",
+        requiresConfirmation: true,
+      };
+    } else if (hasMatched && hasMissing) {
+      source = {
+        type: "custom_dish_mixed_food_database_ai_fallback",
+        label: "Składniki: baza + brak",
+        foodLookupStatus: "mixed",
+        requiresConfirmation: usesProxy,
+      };
+    } else if (hasMissing) {
+      source = {
+        type: "custom_dish_missing",
+        label: "Składniki: braki w bazie",
+        foodLookupStatus: "not_found",
+        requiresConfirmation: false,
+      };
+    } else if (usesProxy) {
+      source = {
+        type: "custom_dish_food_database_proxy",
+        label: "Składniki: baza/proxy",
+        foodLookupStatus: "matched",
+        requiresConfirmation: true,
+      };
+    } else {
+      source = {
+        type: "custom_dish_food_database",
+        label: "Składniki: baza",
+        foodLookupStatus: "matched",
+        requiresConfirmation: false,
+      };
+    }
+    updateAiDebug({ foodLookupStatus: source.foodLookupStatus || "-" });
+    return { products: resolvedProducts, source };
+  }
+
   async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
     const config = window.VITATRACK_CONFIG || {};
     const functionUrl = String(config.foodLookupFunctionUrl || "").trim();
@@ -2179,6 +2371,7 @@
     if (existingDish && !window.confirm("Danie o takim ID już istnieje. Nadpisać?")) return false;
     const now = new Date().toISOString();
     const products = normalizeAiProducts(result.products || result.produkty || result.ingredients || result.skladniki);
+    const lookupResult = await resolveDishIngredientsWithFoodLookup(products);
     const dish = {
       id,
       name: typeof (result.name || result.nazwa) === "string" && (result.name || result.nazwa).trim()
@@ -2193,15 +2386,9 @@
       totalData,
       per100gData,
       tags: normalizeAiTags(result.tags, products),
-      products,
-      source: {
-        type: "ai_parser_dish",
-        label: "Źródło: AI Parser — danie",
-      },
-      dataSource: {
-        type: "ai_parser_dish",
-        label: "Źródło: AI Parser — danie",
-      },
+      products: lookupResult.products,
+      source: lookupResult.source,
+      dataSource: lookupResult.source,
       rawText: input,
       createdAt: existingDish?.createdAt || (typeof result.createdAt === "string" ? result.createdAt : now),
       updatedAt: now,
@@ -2558,19 +2745,25 @@
 
   async function handleExportMissingFoods() {
     try {
-      const allEntries = await window.ketoDb.getAllEntries();
-      const missingRows = collectMissingFoods(allEntries);
+      const [allEntries, allCustomDishes] = await Promise.all([
+        window.ketoDb.getAllEntries(),
+        window.ketoDb.getAllCustomDishes(),
+      ]);
+      const missingRows = collectMissingFoods(allEntries, { customDishes: allCustomDishes });
       const activeMissingKeys = new Set(missingRows.map((row) => row.key));
       const missingFoods = missingRows.map((row) => ({
         query: row.name,
         amount_g: row.amountG,
         lookupStatus: row.lookupStatus,
         dataSourceType: row.dataSourceType,
+        source: row.sourceLabel || "Historia",
+        dish_name: row.dishName || null,
         occurrences: row.occurrences,
         last_used_date: row.lastUsedDate,
         latest_original_text: row.latestOriginalText,
-        note: "AI fallback nutrients belong to the whole entry, not this single missing product.",
+        note: row.note || "AI fallback nutrients belong to the whole entry, not this single missing product.",
         source_entry_ids: row.entryIds,
+        source_dish_ids: row.dishIds || [],
       }));
       const entriesForReview = allEntries.map((entry) => {
         const products = getMissingFoodProducts(entry).filter((product) => activeMissingKeys.has(getMissingFoodKey(product, entry)));
@@ -2594,6 +2787,33 @@
           dataSource: getEntryDataSource(entry),
         };
       }).filter(Boolean);
+      const dishesForReview = allCustomDishes.map((dish) => {
+        const pseudoEntry = {
+          id: `dish:${dish.id}`,
+          createdAt: dish.createdAt || dish.updatedAt || "",
+          date: getDishReviewDate(dish),
+          rawText: `Moje danie: ${dish.name}`,
+        };
+        const products = getDishMissingFoodProducts(dish).filter((product) => activeMissingKeys.has(getMissingFoodKey(product, pseudoEntry)));
+        if (!products.length) return null;
+        return {
+          id: dish.id,
+          name: dish.name,
+          totalMassG: dish.totalMassG,
+          products: products.map((product) => ({
+            query: product.name,
+            amount_g: product.amountG,
+            lookupStatus: product.lookupStatus || null,
+            dataSourceType: product.dataSourceType || null,
+            matchedName: product.matchedName || null,
+            fdcId: product.fdcId ?? null,
+            requiresConfirmation: product.requiresConfirmation === true,
+            matchType: product.matchType || null,
+          })),
+          note: "Dish nutrients belong to the whole recipe, not each listed missing product.",
+          dataSource: getDishDataSourceInfo(dish),
+        };
+      }).filter(Boolean);
       const payload = {
         app: "Bilans",
         exportType: "missing_in_food_database",
@@ -2601,6 +2821,7 @@
         count: missingFoods.length,
         missingFoods,
         entries: entriesForReview,
+        customDishes: dishesForReview,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);

@@ -458,6 +458,13 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .dish-card h2 { margin: 0; font-size: 1rem; }
 .dish-card header span, .dish-macro { color: var(--app-muted); font-size: .72rem; font-weight: 700; }
 .dish-macro { margin: 0; }
+.dish-source { margin: 0; padding: 7px 9px; border-radius: 11px; background: var(--app-surface-soft); color: var(--app-muted); font-size: .72rem; font-weight: 850; }
+.dish-source.database { color: var(--app-success); background: var(--app-success-bg); }
+.dish-source.proxy, .dish-source.mixed { color: var(--app-warning); background: var(--app-warning-bg); }
+.dish-source.missing, .dish-source.error { color: var(--app-danger); background: var(--app-danger-bg); }
+.dish-products { display: grid; gap: 6px; padding: 9px 10px; border-radius: 14px; background: var(--app-surface-soft); }
+.dish-products h3 { margin: 0; font-size: .78rem; }
+.dish-products ul { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: var(--app-muted); font-size: .72rem; line-height: 1.35; }
 .dish-portion { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .dish-portion input { min-width: 0; }
 .dish-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
