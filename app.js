@@ -987,9 +987,24 @@
         date.className = "entry-date";
         date.textContent = formatDate(entry.date);
         const sourceInfo = getEntryDataSource(entry);
-        const sourceBadge = document.createElement("span");
-        sourceBadge.className = `source-badge ${sourceInfo.className}`;
-        sourceBadge.textContent = sourceInfo.badgeText;
+        const sourceBadges = document.createElement("div");
+        sourceBadges.className = "source-badge-group";
+        if (sourceInfo.type === "mixed_food_database_ai_fallback") {
+          [
+            ["source-badge proxy", "Baza/proxy"],
+            ["source-badge missing", "Brak: 1+"],
+          ].forEach(([className, text]) => {
+            const badge = document.createElement("span");
+            badge.className = className;
+            badge.textContent = text;
+            sourceBadges.append(badge);
+          });
+        } else {
+          const sourceBadge = document.createElement("span");
+          sourceBadge.className = `source-badge ${sourceInfo.className}`;
+          sourceBadge.textContent = sourceInfo.badgeText;
+          sourceBadges.append(sourceBadge);
+        }
         const actions = document.createElement("div");
         actions.className = "entry-actions";
         const editButton = document.createElement("button");
@@ -1003,7 +1018,7 @@
         deleteButton.textContent = "Usuń";
         deleteButton.dataset.deleteEntryId = entry.id;
         actions.append(editButton, deleteButton);
-        top.append(date, sourceBadge, actions);
+        top.append(date, sourceBadges, actions);
 
         const macros = document.createElement("div");
         macros.className = "macro-list";
@@ -1103,7 +1118,8 @@
     const name = String(product.name || product.query || product.originalName || entry.rawText || "Nieznany produkt").trim();
     const amount = product.amountG === null || product.amountG === undefined ? "" : String(product.amountG);
     const source = String(product.originalName || product.query || name).trim();
-    return `${normalizeText(name)}|${amount}|${normalizeText(source)}`;
+    const entryKey = String(entry.id || entry.createdAt || `${entry.date || ""}|${entry.rawText || ""}`).trim();
+    return `${normalizeText(entryKey)}|${normalizeText(name)}|${amount}|${normalizeText(source)}`;
   }
 
   function readHiddenMissingFoodKeys() {
