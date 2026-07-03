@@ -1044,7 +1044,16 @@
           const productsList = document.createElement("ul");
           products.forEach((product) => {
             const item = document.createElement("li");
-            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g`;
+            const statusLabels = {
+              food_database: "baza",
+              food_database_proxy: "baza proxy",
+              ai_fallback_missing: "brak w bazie",
+              food_lookup_error: "błąd bazy",
+              unknown: "źródło nieznane",
+            };
+            const sourceLabel = statusLabels[product.dataSourceType] || null;
+            const matchedLabel = product.matchedName ? `: ${product.matchedName}` : "";
+            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}${matchedLabel}` : ""}`;
             productsList.append(item);
           });
           productsSection.append(productsTitle, productsList);
@@ -1065,12 +1074,24 @@
       return products.map((product) => ({
         name: String(product.name || "").trim() || entry.rawText || "Nieznany produkt",
         amountG: Number.isFinite(Number(product.amountG)) ? Number(product.amountG) : null,
+        lookupStatus: product.lookupStatus || null,
+        dataSourceType: product.dataSourceType || null,
+        matchedName: product.matchedName || null,
+        fdcId: product.fdcId ?? null,
+        matchType: product.matchType || null,
+        requiresConfirmation: product.requiresConfirmation === true,
       }));
     }
     const sourceInfo = getEntryDataSource(entry);
     return [{
       name: String(sourceInfo.originalText || entry.rawText || "Nieznany produkt").trim(),
       amountG: null,
+      lookupStatus: null,
+      dataSourceType: sourceInfo.type || null,
+      matchedName: null,
+      fdcId: null,
+      matchType: null,
+      requiresConfirmation: false,
     }];
   }
 
@@ -1078,9 +1099,16 @@
     const rows = new Map();
     sourceEntries.forEach((entry) => {
       const sourceInfo = getEntryDataSource(entry);
-      if (sourceInfo.type !== "ai_fallback_missing") return;
+      const products = getMissingFoodProducts(entry);
+      const hasProductLookupMetadata = products.some((product) => product.lookupStatus || product.dataSourceType);
+      const missingProducts = products.filter((product) => product.lookupStatus === "not_found"
+        || product.dataSourceType === "ai_fallback_missing");
+      const productsForReview = missingProducts.length
+        ? missingProducts
+        : (!hasProductLookupMetadata && sourceInfo.type === "ai_fallback_missing" ? products : []);
+      if (!productsForReview.length) return;
 
-      getMissingFoodProducts(entry).forEach((product) => {
+      productsForReview.forEach((product) => {
         const name = product.name || "Nieznany produkt";
         const amountG = product.amountG;
         const key = `${name.toLocaleLowerCase("pl-PL")}|${amountG ?? ""}`;
@@ -1093,6 +1121,8 @@
           latestOriginalText: entry.rawText,
           aiFallbackNutrients: entry.parsedData || {},
           entryIds: [],
+          lookupStatus: product.lookupStatus || "not_found",
+          dataSourceType: product.dataSourceType || "ai_fallback_missing",
         };
 
         row.occurrences += 1;
@@ -1577,6 +1607,77 @@
     }));
   }
 
+  function isProxyLookupResult(result) {
+    return Boolean(result?.payload?.product?.is_proxy === true
+      || result?.payload?.match?.match_type === "proxy"
+      || result?.payload?.product?.source === "usda_proxy"
+      || result?.payload?.match?.requires_confirmation === true);
+  }
+
+  function createProductLookupMetadata(product, result = null, error = null) {
+    const baseProduct = {
+      ...product,
+      query: product.name,
+      originalName: product.name,
+      amountG: product.amountG,
+    };
+    if (error) {
+      return {
+        ...baseProduct,
+        lookupStatus: "error",
+        matchedName: null,
+        fdcId: null,
+        requiresConfirmation: false,
+        matchType: null,
+        dataSourceType: "food_lookup_error",
+      };
+    }
+    if (!result) {
+      return {
+        ...baseProduct,
+        lookupStatus: null,
+        matchedName: null,
+        fdcId: null,
+        requiresConfirmation: false,
+        matchType: null,
+        dataSourceType: "unknown",
+      };
+    }
+    if (result.kind === "matched") {
+      const payload = result.payload || {};
+      const isProxy = isProxyLookupResult(result);
+      return {
+        ...baseProduct,
+        lookupStatus: "matched",
+        matchedName: payload.product?.product_name || payload.product?.name || payload.product_name || null,
+        fdcId: payload.product?.fdc_id ?? payload.fdc_id ?? null,
+        requiresConfirmation: payload.match?.requires_confirmation === true,
+        matchType: payload.match?.match_type || (isProxy ? "proxy" : "exact"),
+        dataSourceType: isProxy ? "food_database_proxy" : "food_database",
+      };
+    }
+    if (result.kind === "not_found") {
+      return {
+        ...baseProduct,
+        lookupStatus: "not_found",
+        matchedName: null,
+        fdcId: null,
+        requiresConfirmation: false,
+        matchType: null,
+        dataSourceType: "ai_fallback_missing",
+      };
+    }
+    return {
+      ...baseProduct,
+      lookupStatus: null,
+      matchedName: null,
+      fdcId: null,
+      requiresConfirmation: false,
+      matchType: null,
+      dataSourceType: "unknown",
+    };
+  }
+
   async function resolveMealWithFoodLookup(products, fallbackParsedData) {
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak produktów" });
@@ -1589,19 +1690,21 @@
           foodLookupStatus: null,
           requiresConfirmation: false,
         },
+        products: products.map((product) => createProductLookupMetadata(product)),
       };
     }
 
     const results = [];
     for (const product of products) {
       try {
-        results.push(await requestFoodLookup({
+        const result = await requestFoodLookup({
           query: product.name,
           amount_g: product.amountG,
           variant: null,
           fdc_id: null,
           limit: 5,
-        }));
+        });
+        results.push({ product, result });
       } catch (error) {
         console.warn("[Food Lookup] Technical error, falling back to AI nutrients", error);
         updateAiDebug({
@@ -1619,12 +1722,17 @@
             requiresConfirmation: false,
             originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
           },
+          products: products.map((item, index) => {
+            if (index < results.length) return createProductLookupMetadata(item, results[index].result);
+            if (index === results.length) return createProductLookupMetadata(item, null, error);
+            return createProductLookupMetadata(item);
+          }),
         };
       }
     }
 
-    if (results.every((result) => result.kind === "matched")) {
-      const databaseParsedData = sumLookupNutrients(results);
+    if (results.every(({ result }) => result.kind === "matched")) {
+      const databaseParsedData = sumLookupNutrients(results.map(({ result }) => result));
       if (!databaseParsedData || [databaseParsedData.kalorie, databaseParsedData.bialko, databaseParsedData.tluszcz, databaseParsedData.wegle_netto].every((value) => value === null)) {
         updateAiDebug({ foodLookupStatus: "error", errorType: "database_mapping_error" });
         return {
@@ -1637,17 +1745,17 @@
             requiresConfirmation: true,
             originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
           },
+          products: results.map(({ product, result }) => createProductLookupMetadata(product, result)),
         };
       }
-      const requiresConfirmation = results.some((result) => result.payload?.match?.requires_confirmation === true);
-      const usesProxy = results.some((result) => result.payload?.product?.is_proxy === true
-        || result.payload?.match?.match_type === "proxy"
-        || result.payload?.product?.source === "usda_proxy");
-      const firstMatched = results[0]?.payload;
+      const requiresConfirmation = results.some(({ result }) => result.payload?.match?.requires_confirmation === true);
+      const usesProxy = results.some(({ result }) => isProxyLookupResult(result));
+      const firstMatched = results[0]?.result.payload;
       updateAiDebug({ foodLookupStatus: "matched" });
       return {
         parsedData: databaseParsedData,
         status: "matched",
+        products: results.map(({ product, result }) => createProductLookupMetadata(product, result)),
         source: usesProxy || requiresConfirmation
           ? {
             type: "food_database_proxy",
@@ -1674,6 +1782,7 @@
     return {
       parsedData: fallbackParsedData,
       status: "not_found",
+      products: results.map(({ product, result }) => createProductLookupMetadata(product, result)),
       source: {
         type: "ai_fallback_missing",
         label: "Źródło: AI fallback — brak w bazie",
@@ -1896,7 +2005,7 @@
       rawText: input,
       parsedData: lookupResult.parsedData,
       tags: normalizeAiTags(result.tagi || result.tags, products),
-      products,
+      products: lookupResult.products || products,
       nutritionSource: lookupResult.source,
       dataSource: lookupResult.source,
     };
@@ -2204,6 +2313,8 @@
       const missingFoods = collectMissingFoods(allEntries).map((row) => ({
         query: row.name,
         amount_g: row.amountG,
+        lookupStatus: row.lookupStatus,
+        dataSourceType: row.dataSourceType,
         occurrences: row.occurrences,
         last_used_date: row.lastUsedDate,
         latest_original_text: row.latestOriginalText,
@@ -2218,6 +2329,12 @@
           products: Array.isArray(entry.products) ? entry.products.map((product) => ({
             query: product.name,
             amount_g: product.amountG,
+            lookupStatus: product.lookupStatus || null,
+            dataSourceType: product.dataSourceType || null,
+            matchedName: product.matchedName || null,
+            fdcId: product.fdcId ?? null,
+            requiresConfirmation: product.requiresConfirmation === true,
+            matchType: product.matchType || null,
           })) : [],
           aiFallbackNutrients: entry.parsedData || {},
           dataSource: getEntryDataSource(entry),
