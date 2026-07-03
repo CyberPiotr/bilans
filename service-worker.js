@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-source-badges-missing-export-v27";
+const CACHE_NAME = "vitatrack-missing-foods-panel-v28";
 const APP_SHELL = [
   "./",
   "./index.html",

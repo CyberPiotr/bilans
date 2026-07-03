@@ -540,13 +540,13 @@
       return { ...source, badgeText: "Baza", className: "database" };
     }
     if (type === "food_database_proxy") {
-      return { ...source, badgeText: "Baza proxy", className: "proxy" };
+      return { ...source, badgeText: "! Baza proxy", className: "proxy" };
     }
     if (type === "ai_fallback_missing") {
-      return { ...source, badgeText: "Brak w bazie", className: "missing" };
+      return { ...source, badgeText: "! Brak w bazie", className: "missing" };
     }
     if (type === "ai_fallback_database_error" || type === "ai_fallback_database_mapping_error") {
-      return { ...source, badgeText: "Błąd bazy / AI", className: "error" };
+      return { ...source, badgeText: "! Błąd bazy / AI", className: "error" };
     }
     return { ...source, badgeText: source.label || "Źródło nieznane", className: "unknown" };
   }
@@ -1059,6 +1059,118 @@
       });
   }
 
+  function getMissingFoodProducts(entry) {
+    const products = Array.isArray(entry.products) ? entry.products : [];
+    if (products.length) {
+      return products.map((product) => ({
+        name: String(product.name || "").trim() || entry.rawText || "Nieznany produkt",
+        amountG: Number.isFinite(Number(product.amountG)) ? Number(product.amountG) : null,
+      }));
+    }
+    const sourceInfo = getEntryDataSource(entry);
+    return [{
+      name: String(sourceInfo.originalText || entry.rawText || "Nieznany produkt").trim(),
+      amountG: null,
+    }];
+  }
+
+  function collectMissingFoods(sourceEntries = entries) {
+    const rows = new Map();
+    sourceEntries.forEach((entry) => {
+      const sourceInfo = getEntryDataSource(entry);
+      if (sourceInfo.type !== "ai_fallback_missing") return;
+
+      getMissingFoodProducts(entry).forEach((product) => {
+        const name = product.name || "Nieznany produkt";
+        const amountG = product.amountG;
+        const key = `${name.toLocaleLowerCase("pl-PL")}|${amountG ?? ""}`;
+        const row = rows.get(key) || {
+          key,
+          name,
+          amountG,
+          occurrences: 0,
+          lastUsedDate: entry.date,
+          latestOriginalText: entry.rawText,
+          aiFallbackNutrients: entry.parsedData || {},
+          entryIds: [],
+        };
+
+        row.occurrences += 1;
+        row.entryIds.push(entry.id);
+        if (!row.lastUsedDate || entry.date >= row.lastUsedDate) {
+          row.lastUsedDate = entry.date;
+          row.latestOriginalText = entry.rawText;
+          row.aiFallbackNutrients = entry.parsedData || {};
+        }
+        rows.set(key, row);
+      });
+    });
+
+    return [...rows.values()].sort((a, b) => b.lastUsedDate.localeCompare(a.lastUsedDate) || a.name.localeCompare(b.name, "pl"));
+  }
+
+  function renderMissingFoods() {
+    if (!elements.missingFoodsList || !elements.missingFoodsSummary) return;
+    const rows = collectMissingFoods();
+    elements.missingFoodsList.replaceChildren();
+    elements.missingFoodsSummary.textContent = rows.length
+      ? `${rows.length} pozycji z brakami w bazie, liczonych z historii.`
+      : "Brak produktów oznaczonych jako brakujące w bazie.";
+
+    if (!rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state missing-foods-empty";
+      const title = document.createElement("strong");
+      title.textContent = "Nie ma jeszcze braków w bazie.";
+      const text = document.createElement("span");
+      text.textContent = "Gdy food-lookup zwróci not_found i aplikacja użyje fallbacku AI, wpis pojawi się tutaj.";
+      empty.append(title, text);
+      elements.missingFoodsList.append(empty);
+      return;
+    }
+
+    rows.forEach((row) => {
+      const item = document.createElement("article");
+      item.className = "missing-food-item";
+
+      const header = document.createElement("header");
+      const title = document.createElement("h2");
+      title.textContent = row.name;
+      const count = document.createElement("span");
+      count.className = "missing-food-count";
+      count.textContent = `${row.occurrences}x`;
+      header.append(title, count);
+
+      const meta = document.createElement("p");
+      meta.className = "missing-food-meta";
+      meta.textContent = [
+        row.amountG === null ? "gramatura: brak" : `gramatura: ${formatNumber(row.amountG)} g`,
+        `ostatnio: ${formatDate(row.lastUsedDate)}`,
+      ].join(" · ");
+
+      const source = document.createElement("p");
+      source.className = "missing-food-source";
+      source.textContent = row.latestOriginalText || row.name;
+
+      const nutrients = row.aiFallbackNutrients || {};
+      const macros = document.createElement("div");
+      macros.className = "missing-food-nutrients";
+      [
+        ["kcal", nutrients.kalorie, "kcal"],
+        ["białko", nutrients.bialko, "g"],
+        ["tłuszcz", nutrients.tluszcz, "g"],
+        ["węgle", nutrients.wegle_netto, "g"],
+      ].forEach(([label, value, unit]) => {
+        const chip = document.createElement("span");
+        chip.textContent = `${label}: ${value == null ? "brak" : `${formatNumber(value)} ${unit}`}`;
+        macros.append(chip);
+      });
+
+      item.append(header, meta, source, macros);
+      elements.missingFoodsList.append(item);
+    });
+  }
+
   function renderCustomDishes() {
     elements.dishesList.replaceChildren();
     if (customDishes.length === 0) {
@@ -1139,6 +1251,7 @@
     renderSummaries();
     renderAlerts();
     renderEntries();
+    renderMissingFoods();
     renderCustomDishes();
   }
 
@@ -2075,12 +2188,25 @@
     }
   }
 
+  function setMissingFoodsExportMessage(text, type = "") {
+    if (elements.backupMessage) setMessage(elements.backupMessage, text, type);
+    if (elements.missingFoodsMessage) setMessage(elements.missingFoodsMessage, text, type);
+  }
+
   async function handleExportMissingFoods() {
     try {
       const allEntries = await window.ketoDb.getAllEntries();
-      const missingEntries = allEntries
-        .filter((entry) => getEntryDataSource(entry).type === "ai_fallback_missing")
-        .map((entry) => ({
+      const missingEntries = allEntries.filter((entry) => getEntryDataSource(entry).type === "ai_fallback_missing");
+      const missingFoods = collectMissingFoods(allEntries).map((row) => ({
+        query: row.name,
+        amount_g: row.amountG,
+        occurrences: row.occurrences,
+        last_used_date: row.lastUsedDate,
+        latest_original_text: row.latestOriginalText,
+        aiFallbackNutrients: row.aiFallbackNutrients,
+        source_entry_ids: row.entryIds,
+      }));
+      const entriesForReview = missingEntries.map((entry) => ({
           id: entry.id,
           date: entry.date,
           originalText: entry.rawText,
@@ -2096,8 +2222,9 @@
         app: "Bilans",
         exportType: "missing_in_food_database",
         exportedAt: new Date().toISOString(),
-        count: missingEntries.length,
-        entries: missingEntries,
+        count: missingFoods.length,
+        missingFoods,
+        entries: entriesForReview,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -2108,10 +2235,10 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setMessage(elements.backupMessage, `Wyeksportowano ${missingEntries.length} braków w bazie.`, "success");
+      setMissingFoodsExportMessage(`Wyeksportowano ${missingFoods.length} braków w bazie.`, "success");
     } catch (error) {
       console.error(error);
-      setMessage(elements.backupMessage, "Nie udało się wyeksportować braków w bazie.", "error");
+      setMissingFoodsExportMessage("Nie udało się wyeksportować braków w bazie.", "error");
     }
   }
 
@@ -2275,6 +2402,7 @@
     });
     elements.exportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
+    elements.missingFoodsExportButton.addEventListener("click", handleExportMissingFoods);
     elements.importButton.addEventListener("click", () => elements.importInput.click());
     elements.importInput.addEventListener("change", () => {
       const [file] = elements.importInput.files;
@@ -2376,6 +2504,10 @@
       installButton: document.querySelector("#install-button"),
       menuBackdrop: document.querySelector("#menu-backdrop"),
       menuButton: document.querySelector("#menu-button"),
+      missingFoodsExportButton: document.querySelector("#missing-foods-export-button"),
+      missingFoodsList: document.querySelector("#missing-foods-list"),
+      missingFoodsMessage: document.querySelector("#missing-foods-message"),
+      missingFoodsSummary: document.querySelector("#missing-foods-summary"),
       pwaMessage: document.querySelector("#pwa-message"),
       rawInput: document.querySelector("#raw-input"),
       resetSettingsButton: document.querySelector("#reset-settings-button"),

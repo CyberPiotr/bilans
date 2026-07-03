@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-source-badges-missing-export-v27";
-  const APP_LAST_CHANGE = "badge źródła i eksport braków w bazie";
+  const APP_VERSION = "vitatrack-missing-foods-panel-v28";
+  const APP_LAST_CHANGE = "panel braków i wyraźne badge źródła";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({

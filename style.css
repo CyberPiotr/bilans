@@ -389,11 +389,12 @@ body[data-current-view]:not([data-current-view="start"]) .composer-shell { displ
 .entry-item { display: grid; gap: 10px; padding: 14px; border-radius: 18px; }
 .entry-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .entry-date { font-weight: 850; }
-.source-badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; font-size: .62rem; font-weight: 900; line-height: 1; }
-.source-badge.database { background: color-mix(in srgb, var(--app-success) 18%, var(--app-surface-soft)); color: var(--app-success); }
-.source-badge.proxy { background: color-mix(in srgb, var(--app-warning-border) 28%, var(--app-surface-soft)); color: var(--app-warning); }
-.source-badge.missing, .source-badge.error { background: var(--app-danger-bg); color: var(--app-danger); }
-.source-badge.unknown { background: var(--app-surface-soft); color: var(--app-muted); }
+.source-badge { flex: 0 0 auto; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: .63rem; font-weight: 950; line-height: 1; letter-spacing: .01em; white-space: nowrap; }
+.source-badge.database { border-color: color-mix(in srgb, var(--app-success) 42%, transparent); background: color-mix(in srgb, var(--app-success) 16%, var(--app-surface-soft)); color: var(--app-success); }
+.source-badge.proxy { border-color: #f59e0b; background: #fff1b8; color: #7a4300; box-shadow: inset 0 0 0 1px rgba(245, 158, 11, .2); }
+.source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, .18); }
+.source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
+.source-badge.unknown { border-color: var(--app-border); background: var(--app-surface-soft); color: var(--app-muted); }
 .entry-actions { display: flex; gap: 6px; }
 .edit-button, .delete-button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; font-size: .76rem; font-weight: 800; }
 .edit-button { background: var(--app-surface-soft); color: var(--app-accent-strong); }
@@ -410,6 +411,27 @@ body[data-current-view]:not([data-current-view="start"]) .composer-shell { displ
 .entry-products h3 { margin-bottom: 7px; font-size: .78rem; }
 .entry-products ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
 .entry-details pre { max-height: 240px; overflow: auto; margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); color: var(--app-text); font-size: .72rem; white-space: pre-wrap; }
+
+.missing-foods-panel { display: grid; gap: 16px; }
+.missing-foods-panel-header { display: grid; gap: 12px; }
+.missing-foods-panel-header h2 { margin: 0 0 4px; font-size: 1rem; }
+.missing-foods-list { display: grid; gap: 10px; }
+.missing-food-item {
+  display: grid;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--app-danger) 24%, var(--app-border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--app-danger-bg) 52%, var(--app-surface));
+}
+.missing-food-item header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.missing-food-item h2 { margin: 0; font-size: .95rem; }
+.missing-food-count { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: .68rem; font-weight: 950; }
+.missing-food-meta, .missing-food-source { margin: 0; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
+.missing-food-source { color: var(--app-text); font-weight: 750; }
+.missing-food-nutrients { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.missing-food-nutrients span { padding: 7px 8px; border-radius: 10px; background: var(--app-surface-soft); color: var(--app-text); font-size: .68rem; font-weight: 800; }
+.missing-foods-empty { padding: 12px; border-radius: 14px; background: var(--app-surface-soft); }
 
 .dish-card {
   display: grid;
@@ -581,6 +603,9 @@ input, select { width: 100%; min-height: 44px; padding: 8px 10px; border-radius:
   .start-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .goal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .macro-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .missing-foods-panel-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .missing-foods-panel-header .button { width: auto; }
+  .missing-food-nutrients { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .sticky-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
