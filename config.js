@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-food-lookup-real-flow-v25";
-  const APP_LAST_CHANGE = "food-lookup w flow Policz AI";
+  const APP_VERSION = "vitatrack-food-lookup-source-fix-v26";
+  const APP_LAST_CHANGE = "mapowanie value_per_100g i źródło danych";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({

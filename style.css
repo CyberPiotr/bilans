@@ -400,6 +400,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-shell { displ
 .tag { background: var(--app-tag-bg); color: var(--app-accent-strong); }
 .entry-details { border-top: 1px solid var(--app-border); }
 .entry-details summary { min-height: 44px; padding: 8px 2px 0; color: var(--app-muted); font-size: .78rem; font-weight: 800; }
+.entry-source { margin: 10px 0 0; padding: 8px 10px; border-radius: 11px; background: var(--app-surface-soft); color: var(--app-accent-strong); font-size: .72rem; font-weight: 850; }
 .entry-products { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); }
 .entry-products h3 { margin-bottom: 7px; font-size: .78rem; }
 .entry-products ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }

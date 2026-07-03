@@ -998,6 +998,12 @@
         const detailsSummary = document.createElement("summary");
         detailsSummary.textContent = "Szczegóły wpisu";
         details.append(detailsSummary);
+        if (entry.nutritionSource?.label) {
+          const source = document.createElement("p");
+          source.className = "entry-source";
+          source.textContent = entry.nutritionSource.label;
+          details.append(source);
+        }
         const products = Array.isArray(entry.products) ? entry.products : [];
         if (products.length) {
           const productsSection = document.createElement("section");
@@ -1399,20 +1405,25 @@
 
   function normalizeLookupNutrients(payload) {
     const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
+    const factor = Number(payload?.amount?.factor);
+    if (!Number.isFinite(factor) || factor < 0) return null;
     return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
-      if (!Object.hasOwn(nutrients, key) || nutrients[key] === null || nutrients[key] === undefined) {
+      const nutrient = nutrients[key];
+      if (!nutrient || typeof nutrient !== "object" || nutrient.value_per_100g === null || nutrient.value_per_100g === undefined) {
         return [key, null];
       }
-      const value = Number(nutrients[key]);
-      return [key, Number.isFinite(value) && value >= 0 ? value : null];
+      const valuePer100g = Number(nutrient.value_per_100g);
+      return [key, Number.isFinite(valuePer100g) && valuePer100g >= 0 ? valuePer100g * factor : null];
     }));
   }
 
   function sumLookupNutrients(results) {
+    const normalizedResults = results.map((result) => normalizeLookupNutrients(result.payload));
+    if (normalizedResults.some((nutrients) => nutrients === null)) return null;
     return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
       let hasNumber = false;
-      const total = results.reduce((sum, result) => {
-        const value = normalizeLookupNutrients(result.payload)[key];
+      const total = normalizedResults.reduce((sum, nutrients) => {
+        const value = nutrients[key];
         if (value === null) return sum;
         hasNumber = true;
         return sum + value;
@@ -1424,7 +1435,11 @@
   async function resolveMealWithFoodLookup(products, fallbackParsedData) {
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak produktów" });
-      return { parsedData: fallbackParsedData, status: "brak produktów" };
+      return {
+        parsedData: fallbackParsedData,
+        status: "brak produktów",
+        source: { type: "ai_fallback", label: "Źródło: AI fallback — brak produktów do sprawdzenia w bazie" },
+      };
     }
 
     const results = [];
@@ -1444,17 +1459,44 @@
           errorType: "food_lookup",
           errorMessage: shortDebugMessage(error.message),
         });
-        return { parsedData: fallbackParsedData, status: "error" };
+        return {
+          parsedData: fallbackParsedData,
+          status: "error",
+          source: { type: "ai_fallback_database_error", label: "Źródło: AI fallback — błąd techniczny bazy" },
+        };
       }
     }
 
     if (results.every((result) => result.kind === "matched")) {
+      const databaseParsedData = sumLookupNutrients(results);
+      if (!databaseParsedData || [databaseParsedData.kalorie, databaseParsedData.bialko, databaseParsedData.tluszcz, databaseParsedData.wegle_netto].every((value) => value === null)) {
+        updateAiDebug({ foodLookupStatus: "error", errorType: "database_mapping_error" });
+        return {
+          parsedData: fallbackParsedData,
+          status: "database_mapping_error",
+          source: { type: "ai_fallback_database_mapping_error", label: "Źródło: AI fallback — błąd mapowania bazy" },
+        };
+      }
+      const requiresConfirmation = results.some((result) => result.payload?.match?.requires_confirmation === true);
+      const usesProxy = results.some((result) => result.payload?.product?.is_proxy === true
+        || result.payload?.match?.match_type === "proxy"
+        || result.payload?.product?.source === "usda_proxy");
       updateAiDebug({ foodLookupStatus: "matched" });
-      return { parsedData: sumLookupNutrients(results), status: "matched" };
+      return {
+        parsedData: databaseParsedData,
+        status: "matched",
+        source: usesProxy || requiresConfirmation
+          ? { type: "database_proxy_confirmation", label: "Źródło: baza proxy — wymaga potwierdzenia" }
+          : { type: "database", label: "Źródło: baza żywności" },
+      };
     }
 
     updateAiDebug({ foodLookupStatus: "not_found" });
-    return { parsedData: fallbackParsedData, status: "not_found" };
+    return {
+      parsedData: fallbackParsedData,
+      status: "not_found",
+      source: { type: "ai_fallback_not_found", label: "Źródło: AI fallback — brak w bazie" },
+    };
   }
 
   async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
@@ -1670,6 +1712,7 @@
       parsedData: lookupResult.parsedData,
       tags: normalizeAiTags(result.tagi || result.tags, products),
       products,
+      nutritionSource: lookupResult.source,
     };
     await window.ketoDb.saveEntry(entry);
     cancelEditEntry(false);
