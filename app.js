@@ -570,7 +570,13 @@
       return { ...source, badgeText: "Baza + brak", className: "mixed" };
     }
     if (type === "custom_dish") {
-      return { ...source, badgeText: "Danie własne", className: "custom-dish" };
+      const ingredientText = getDishIngredientQualityText(source.ingredientSource);
+      return {
+        ...source,
+        label: ingredientText ? `Danie własne · ${ingredientText}` : "Danie własne",
+        badgeText: "Danie własne",
+        className: "custom-dish",
+      };
     }
     if (type === "ai_fallback_database_error" || type === "ai_fallback_database_mapping_error") {
       return { ...source, badgeText: "! Błąd bazy / AI", className: "error" };
@@ -578,32 +584,50 @@
     return { ...source, badgeText: source.label || "Źródło nieznane", className: "unknown" };
   }
 
-  function getProductSourceLabel(product) {
-    const statusLabels = {
-      food_database: "baza",
-      food_database_proxy: "baza proxy",
-      ai_fallback_missing: "brak w bazie / AI fallback",
-      food_lookup_error: "błąd bazy",
-      custom_dish: "danie własne",
-      unknown: "źródło nieznane",
+  function getProductSourceBadgeInfo(product) {
+    const statusMap = {
+      food_database: { text: "Baza", className: "database" },
+      food_database_proxy: { text: "Baza proxy", className: "proxy" },
+      ai_fallback_missing: { text: "Brak w bazie", className: "missing" },
+      food_lookup_error: { text: "Błąd bazy", className: "error" },
+      custom_dish: { text: "Danie własne", className: "custom-dish" },
+      unknown: { text: "AI Parser", className: "unknown" },
     };
-    const sourceLabel = statusLabels[product?.dataSourceType] || null;
-    const matchedLabel = product?.matchedName ? `: ${product.matchedName}` : "";
-    return sourceLabel ? `${sourceLabel}${matchedLabel}` : "";
+    return statusMap[product?.dataSourceType] || null;
+  }
+
+  function appendProductSourceBadge(item, product) {
+    const source = getProductSourceBadgeInfo(product);
+    if (!source) return;
+    const badge = document.createElement("span");
+    badge.className = `ingredient-source-badge ${source.className}`;
+    badge.textContent = source.text;
+    badge.title = product?.matchedName ? `Dopasowano: ${product.matchedName}` : source.text;
+    item.append(" ", badge);
+  }
+
+  function getDishIngredientQualityText(source) {
+    const type = source?.type || "";
+    if (type === "custom_dish_food_database") return "Źródła składników: baza";
+    if (type === "custom_dish_food_database_proxy") return "Źródła składników: baza/proxy";
+    if (type === "custom_dish_mixed_food_database_ai_fallback") return "Źródła składników: baza + brak";
+    if (type === "custom_dish_missing") return "Źródła składników: braki w bazie";
+    if (type === "custom_dish_lookup_error") return "Źródła składników: błąd bazy";
+    return "";
   }
 
   function getDishDataSourceInfo(dish) {
     const source = dish?.dataSource || dish?.source;
     if (!source || typeof source !== "object") {
-      return { label: "Składniki: źródło nieznane", className: "unknown" };
+      return { label: "Jakość danych: źródło składników nieznane", className: "unknown" };
     }
     const type = source.type || "unknown";
-    if (type === "custom_dish_food_database") return { ...source, label: "Składniki: baza", className: "database" };
-    if (type === "custom_dish_food_database_proxy") return { ...source, label: "Składniki: baza/proxy", className: "proxy" };
-    if (type === "custom_dish_mixed_food_database_ai_fallback") return { ...source, label: "Składniki: baza + brak", className: "mixed" };
-    if (type === "custom_dish_missing") return { ...source, label: "Składniki: braki w bazie", className: "missing" };
-    if (type === "custom_dish_lookup_error") return { ...source, label: "Składniki: błąd bazy", className: "error" };
-    return { ...source, label: source.label || "Składniki: AI Parser", className: "unknown" };
+    if (type === "custom_dish_food_database") return { ...source, label: "Jakość danych: baza", className: "database" };
+    if (type === "custom_dish_food_database_proxy") return { ...source, label: "Jakość danych: baza/proxy", className: "proxy" };
+    if (type === "custom_dish_mixed_food_database_ai_fallback") return { ...source, label: "Jakość danych: baza + brak", className: "mixed" };
+    if (type === "custom_dish_missing") return { ...source, label: "Jakość danych: braki w bazie", className: "missing" };
+    if (type === "custom_dish_lookup_error") return { ...source, label: "Jakość danych: błąd bazy", className: "error" };
+    return { ...source, label: source.label || "Jakość danych: AI Parser", className: "unknown" };
   }
 
   function formatNumber(value) {
@@ -1114,8 +1138,8 @@
           const productsList = document.createElement("ul");
           products.forEach((product) => {
             const item = document.createElement("li");
-            const sourceLabel = getProductSourceLabel(product);
-            item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}` : ""}`;
+            item.append(`${product.name} — ${formatNumber(product.amountG)} g`);
+            appendProductSourceBadge(item, product);
             productsList.append(item);
           });
           productsSection.append(productsTitle, productsList);
@@ -1432,8 +1456,8 @@
         const productsList = document.createElement("ul");
         products.forEach((product) => {
           const item = document.createElement("li");
-          const sourceLabel = getProductSourceLabel(product);
-          item.textContent = `${product.name} — ${formatNumber(product.amountG)} g${sourceLabel ? ` · ${sourceLabel}` : ""}`;
+          item.append(`${product.name} — ${formatNumber(product.amountG)} g`);
+          appendProductSourceBadge(item, product);
           productsList.append(item);
         });
         productsSection.append(productsTitle, productsList);
@@ -2630,18 +2654,21 @@
         type: "custom_dish",
         dishId: dish.id,
         dataSourceType: "custom_dish",
+        ingredientSource: dish.dataSource || dish.source || null,
       }],
       nutritionSource: {
         type: "custom_dish",
         label: "Danie własne",
         dishId: dish.id,
         productName: dish.name,
+        ingredientSource: dish.dataSource || dish.source || null,
       },
       dataSource: {
         type: "custom_dish",
         label: "Danie własne",
         dishId: dish.id,
         productName: dish.name,
+        ingredientSource: dish.dataSource || dish.source || null,
       },
     };
     try {

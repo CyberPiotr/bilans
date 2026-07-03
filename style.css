@@ -413,6 +413,12 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .entry-products { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); }
 .entry-products h3 { margin-bottom: 7px; font-size: .78rem; }
 .entry-products ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
+.ingredient-source-badge { display: inline-flex; align-items: center; min-height: 20px; margin-left: 5px; padding: 3px 7px; border: 1px solid transparent; border-radius: 999px; font-size: .62rem; font-weight: 950; line-height: 1; vertical-align: middle; }
+.ingredient-source-badge.database { border-color: color-mix(in srgb, var(--app-success) 42%, transparent); background: color-mix(in srgb, var(--app-success) 16%, var(--app-surface)); color: var(--app-success); }
+.ingredient-source-badge.proxy { border-color: #f59e0b; background: #fff1b8; color: #7a4300; }
+.ingredient-source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
+.ingredient-source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
+.ingredient-source-badge.custom-dish, .ingredient-source-badge.unknown { border-color: var(--app-border); background: var(--app-surface); color: var(--app-muted); }
 .entry-details pre { max-height: 240px; overflow: auto; margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); color: var(--app-text); font-size: .72rem; white-space: pre-wrap; }
 
 .missing-foods-panel { display: grid; gap: 16px; }
