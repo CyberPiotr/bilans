@@ -1167,6 +1167,7 @@
           lastUsedDate: entry.date,
           latestOriginalText: entry.rawText,
           entryIds: [],
+          latestEntryId: entry.id || null,
           lookupStatus: product.lookupStatus || "not_found",
           dataSourceType: product.dataSourceType || "ai_fallback_missing",
           hidden: hiddenKeys.has(key),
@@ -1177,6 +1178,7 @@
         if (!row.lastUsedDate || entry.date >= row.lastUsedDate) {
           row.lastUsedDate = entry.date;
           row.latestOriginalText = entry.rawText;
+          row.latestEntryId = entry.id || null;
         }
         rows.set(key, row);
       });
@@ -1246,7 +1248,12 @@
       remove.textContent = "Usuń z listy";
       // Obie akcje tylko ukrywają brak lokalnie; historia i IndexedDB zostają bez zmian.
       remove.dataset.dismissMissingFood = row.key;
-      actions.append(dismiss, remove);
+      const deleteEntry = document.createElement("button");
+      deleteEntry.className = "button danger";
+      deleteEntry.type = "button";
+      deleteEntry.textContent = "Usuń wpis z historii";
+      deleteEntry.dataset.deleteMissingEntryId = row.latestEntryId || "";
+      actions.append(dismiss, remove, deleteEntry);
 
       item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
@@ -2342,6 +2349,32 @@
     }
   }
 
+  async function deleteMissingFoodEntry(id) {
+    if (!id) {
+      setMessage(elements.missingFoodsMessage, "Nie znaleziono wpisu historii dla tego braku.", "error");
+      return;
+    }
+    if (!window.confirm("Usunąć cały wpis z historii? Tej akcji nie można cofnąć.")) {
+      return;
+    }
+
+    try {
+      const exists = entries.some((entry) => entry.id === id);
+      if (!exists) {
+        setMessage(elements.missingFoodsMessage, "Nie znaleziono wpisu historii dla tego braku.", "error");
+        await refreshEntries();
+        return;
+      }
+      await window.ketoDb.deleteEntry(id);
+      if (editingEntryId === id) cancelEditEntry();
+      await refreshEntries();
+      setMessage(elements.missingFoodsMessage, "Wpis usunięty z historii.", "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.missingFoodsMessage, "Nie udało się usunąć wpisu z historii.", "error");
+    }
+  }
+
   async function handleExport() {
     try {
       const [allEntries, allCustomDishes] = await Promise.all([
@@ -2615,7 +2648,9 @@
     });
     elements.missingFoodsList.addEventListener("click", (event) => {
       const dismissButton = event.target.closest("[data-dismiss-missing-food]");
+      const deleteEntryButton = event.target.closest("[data-delete-missing-entry-id]");
       if (dismissButton) dismissMissingFood(dismissButton.dataset.dismissMissingFood);
+      if (deleteEntryButton) deleteMissingFoodEntry(deleteEntryButton.dataset.deleteMissingEntryId);
     });
     elements.exportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
