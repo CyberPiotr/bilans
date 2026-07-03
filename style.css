@@ -396,6 +396,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .source-badge.mixed { border-color: #0ea5e9; background: #e0f2fe; color: #075985; box-shadow: inset 0 0 0 1px rgba(14, 165, 233, .18); }
 .source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, .18); }
 .source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
+.source-badge.custom-dish { border-color: color-mix(in srgb, var(--app-accent) 38%, transparent); background: var(--app-tag-bg); color: var(--app-accent-strong); }
 .source-badge.unknown { border-color: var(--app-border); background: var(--app-surface-soft); color: var(--app-muted); }
 .entry-actions { display: flex; gap: 6px; }
 .edit-button, .delete-button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; font-size: .76rem; font-weight: 800; }

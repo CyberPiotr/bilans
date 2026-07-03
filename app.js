@@ -444,7 +444,9 @@
     if (!isCustomDishText(rawText)) return null;
     const id = parseNamedValue(rawText, "id");
     const name = parseNamedValue(rawText, "nazwa");
-    const totalMassG = Number.parseFloat(parseNamedValue(rawText, "masa_calkowita_g").replace(",", "."));
+    const explicitTotalMassG = extractExplicitDishTotalMass(rawText);
+    const parsedTotalMassG = Number.parseFloat(parseNamedValue(rawText, "masa_calkowita_g").replace(",", "."));
+    const totalMassG = explicitTotalMassG || parsedTotalMassG;
     const total = parseNutrientSection(rawText, "calosc");
     if (!id || !name || !Number.isFinite(totalMassG) || totalMassG <= 0 || total.detectedCount === 0) return null;
 
@@ -526,6 +528,23 @@
     return { ...existingEntry, date, rawText, parsedData, tags, products, updatedAt };
   }
 
+  function extractExplicitDishTotalMass(rawText) {
+    const normalized = normalizeText(rawText).replace(/\s+/g, " ");
+    const patterns = [
+      /\bmasa calosci\s*(?:wynosi\s*)?(\d+(?:[.,]\d+)?)\s*g\b/,
+      /\bcalosc po ugotowaniu\s*(?:wynosi\s*)?(\d+(?:[.,]\d+)?)\s*g\b/,
+      /\bpo ugotowaniu\s*(?:wynosi\s*)?(\d+(?:[.,]\d+)?)\s*g\b/,
+      /\bcalosc\s*(?:wynosi\s*)?(\d+(?:[.,]\d+)?)\s*g\b/,
+    ];
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (!match) continue;
+      const value = Number.parseFloat(match[1].replace(",", "."));
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+    return null;
+  }
+
   function getEntryDataSource(entry) {
     const source = entry?.dataSource || entry?.nutritionSource;
     if (!source || typeof source !== "object") {
@@ -549,6 +568,9 @@
     }
     if (type === "mixed_food_database_ai_fallback") {
       return { ...source, badgeText: "Baza + brak", className: "mixed" };
+    }
+    if (type === "custom_dish") {
+      return { ...source, badgeText: "Danie własne", className: "custom-dish" };
     }
     if (type === "ai_fallback_database_error" || type === "ai_fallback_database_mapping_error") {
       return { ...source, badgeText: "! Błąd bazy / AI", className: "error" };
@@ -1069,6 +1091,7 @@
               food_database_proxy: "baza proxy",
               ai_fallback_missing: "brak w bazie",
               food_lookup_error: "błąd bazy",
+              custom_dish: "danie własne",
               unknown: "źródło nieznane",
             };
             const sourceLabel = statusLabels[product.dataSourceType] || null;
@@ -1471,8 +1494,8 @@
     const dish = {
       ...parsedDish,
       initialMassG: parsedDish.totalMassG,
-      remainingMassG: parsedDish.totalMassG,
-      usedMassG: 0,
+      remainingMassG: Number.isFinite(Number(existingDish?.remainingMassG)) ? Number(existingDish.remainingMassG) : parsedDish.totalMassG,
+      usedMassG: Number.isFinite(Number(existingDish?.usedMassG)) ? Number(existingDish.usedMassG) : 0,
       createdAt: existingDish?.createdAt || now,
       updatedAt: now,
     };
@@ -2128,22 +2151,25 @@
     return normalizeAiNutrients(result?.totalData || result?.total_data || result?.calosc || result?.nutrients);
   }
 
-  function readAiDishPer100g(result, totalData, totalMassG) {
-    const directPer100g = normalizeAiNutrients(result?.per100gData || result?.per_100g_data || result?.na_100g);
+  function readAiDishPer100g(result, totalData, totalMassG, forceFromTotal = false) {
+    const directPer100g = forceFromTotal
+      ? null
+      : normalizeAiNutrients(result?.per100gData || result?.per_100g_data || result?.na_100g);
     if (directPer100g) return directPer100g;
     if (!totalData || !Number.isFinite(totalMassG) || totalMassG <= 0) return null;
     return Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, totalData[key] / totalMassG * 100]));
   }
 
   async function saveAiDish(result, input, messageElement = elements.formMessage) {
-    const totalMassG = readAiDishMass(result);
+    const explicitTotalMassG = extractExplicitDishTotalMass(input);
+    const totalMassG = explicitTotalMassG || readAiDishMass(result);
     if (!Number.isFinite(totalMassG) || totalMassG <= 0) {
       const error = new Error("AI parser did not return dish total mass");
       error.code = "MISSING_DISH_TOTAL_MASS";
       throw error;
     }
     const totalData = readAiDishNutrients(result);
-    const per100gData = readAiDishPer100g(result, totalData, totalMassG);
+    const per100gData = readAiDishPer100g(result, totalData, totalMassG, Boolean(explicitTotalMassG));
     if (!totalData || !per100gData) {
       throw new Error("AI parser returned invalid dish");
     }
@@ -2160,9 +2186,9 @@
         : "Danie AI",
       totalMassG,
       initialMassG: totalMassG,
-      remainingMassG: totalMassG,
-      usedMassG: 0,
-      massSource: typeof result.massSource === "string" ? result.massSource : "",
+      remainingMassG: Number.isFinite(Number(existingDish?.remainingMassG)) ? Number(existingDish.remainingMassG) : totalMassG,
+      usedMassG: Number.isFinite(Number(existingDish?.usedMassG)) ? Number(existingDish.usedMassG) : 0,
+      massSource: explicitTotalMassG ? "raw_text_explicit_total_mass" : (typeof result.massSource === "string" ? result.massSource : ""),
       portionCalculation: typeof result.portionCalculation === "string" ? result.portionCalculation : "",
       totalData,
       per100gData,
@@ -2403,7 +2429,7 @@
     }
     const ratio = portionG / dish.totalMassG;
     const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, Math.round((dish.totalData?.[key] || 0) * ratio)]));
-    const rawText = `Porcja dania własnego:\n${dish.id} | ${formatNumber(portionG)} g`;
+    const rawText = `Porcja dania własnego: ${dish.name} | ${formatNumber(portionG)} g`;
     const entry = {
       id: createId(),
       date: elements.entryDate.value || localDateString(),
@@ -2411,7 +2437,25 @@
       rawText,
       parsedData,
       tags: [...(dish.tags || [])],
-      products: [{ name: dish.id, amountG: portionG, type: "custom_dish" }],
+      products: [{
+        name: dish.name,
+        amountG: portionG,
+        type: "custom_dish",
+        dishId: dish.id,
+        dataSourceType: "custom_dish",
+      }],
+      nutritionSource: {
+        type: "custom_dish",
+        label: "Danie własne",
+        dishId: dish.id,
+        productName: dish.name,
+      },
+      dataSource: {
+        type: "custom_dish",
+        label: "Danie własne",
+        dishId: dish.id,
+        productName: dish.name,
+      },
     };
     try {
       await window.ketoDb.saveEntry(entry);
