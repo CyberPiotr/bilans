@@ -21,10 +21,14 @@
         <span>VitaTrack</span>
       </button>
       <div class="app-bar-actions">
+        <button id="top-add-button" class="top-action-button top-add-button" type="button" aria-label="Dodaj wpis" title="Dodaj wpis">+</button>
+        <button id="date-picker-button" class="top-action-button date-picker-button" type="button" aria-label="Wybierz datę wpisu" title="Wybierz datę">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8h2m3 0h2m3 0h1m-11 4h2m3 0h2m3 0h1"/></svg>
+        </button>
+        <input id="entry-date" class="date-input-hidden" type="date" required>
         <button id="install-button" class="top-action-button install-button" type="button" aria-label="Zainstaluj aplikację" title="Zainstaluj aplikację" hidden>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
         </button>
-        <button id="top-add-button" class="top-action-button top-add-button" type="button" aria-label="Dodaj wpis" title="Dodaj wpis">+</button>
       </div>
     </header>
     <p id="pwa-message" class="pwa-message" role="status" aria-live="polite" hidden></p>
@@ -221,24 +225,40 @@
     </main>
 
     <section class="composer-shell" aria-label="Dodaj lub edytuj wpis">
-      <div class="composer-meta">
-        <p id="edit-mode-message" class="edit-mode-message" hidden></p>
-        <button id="date-picker-button" class="date-picker-button" type="button" aria-label="Wybierz datę wpisu" title="Wybierz datę">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8h2m3 0h2m3 0h1m-11 4h2m3 0h2m3 0h1"/></svg>
+      <div class="composer-input-area">
+        <div class="composer">
+          <label class="sr-only" for="raw-input">Opisz posiłek lub wklej dane z Gema</label>
+          <textarea id="raw-input" rows="1" placeholder="jajka 120 g..." spellcheck="false"></textarea>
+          <button id="clear-button" class="composer-clear" type="button" aria-label="Wyczyść pole" hidden>×</button>
+          <button id="ai-parse-button" class="composer-ai" type="button" aria-label="Policz posiłek przez AI" title="Policz posiłek przez AI">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11.5 20 4l-6.4 16-3.1-6.5L4 11.5Zm6.5 2L20 4"/></svg>
+          </button>
+          <button id="save-button" class="composer-send" type="button" aria-label="Zapisz format Gema" title="Zapisz format Gema" hidden>Zapisz</button>
+        </div>
+        <div class="composer-feedback">
+          <p id="edit-mode-message" class="edit-mode-message" hidden></p>
+          <button id="cancel-edit-button" class="text-button" type="button" hidden>Anuluj edycję</button>
+          <p id="form-message" class="message" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+      <nav class="bottom-nav" aria-label="Dolna nawigacja">
+        <button type="button" data-view-target="history" aria-label="Historia">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14M5 12h14M5 19h10"/></svg>
+          <span>Historia</span>
         </button>
-        <input id="entry-date" class="date-input-hidden" type="date" required>
-      </div>
-      <div class="composer">
-        <label class="sr-only" for="raw-input">Opisz posiłek lub wklej dane z Gema</label>
-        <textarea id="raw-input" rows="1" placeholder="Opisz posiłek lub wklej dane z Gema…" spellcheck="false"></textarea>
-        <button id="clear-button" class="composer-clear" type="button" aria-label="Wyczyść pole" hidden>×</button>
-        <button id="ai-parse-button" class="composer-ai" type="button" aria-label="Policz posiłek przez AI" title="Policz posiłek przez AI">Policz AI</button>
-        <button id="save-button" class="composer-send" type="button" aria-label="Zapisz format Gema" title="Zapisz format Gema">Gem</button>
-      </div>
-      <div class="composer-feedback">
-        <button id="cancel-edit-button" class="text-button" type="button" hidden>Anuluj edycję</button>
-        <p id="form-message" class="message" role="status" aria-live="polite"></p>
-      </div>
+        <button id="bottom-menu-button" type="button" aria-label="Otwórz menu">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
+          <span>Menu</span>
+        </button>
+        <button type="button" data-view-target="dishes" aria-label="Moje dania">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6V4Zm3 4h6M9 12h6M9 16h4"/></svg>
+          <span>Dania</span>
+        </button>
+        <button id="bottom-add-button" type="button" data-view-target="start" aria-label="Dodaj posiłek">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Dodaj</span>
+        </button>
+      </nav>
       <p class="composer-credit">
         Zaprojektowane przez
         <a href="https://cyberpiotr.pl/" target="_blank" rel="noopener noreferrer">CyberPiotr</a>

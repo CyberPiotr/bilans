@@ -1270,6 +1270,7 @@
       button.classList.toggle("active", button.dataset.viewTarget === viewName);
     });
     closeMenu();
+    requestAnimationFrame(resizeComposer);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1421,7 +1422,7 @@
     elements.saveButton.disabled = loading;
     elements.clearButton.disabled = loading;
     elements.aiParseButton.classList.toggle("loading", loading);
-    elements.aiParseButton.textContent = loading ? "Liczenie…" : "Policz AI";
+    elements.aiParseButton.title = loading ? "Trwa liczenie posiłku" : "Policz posiłek przez AI";
     elements.aiParseButton.setAttribute("aria-label", loading ? "Trwa liczenie posiłku" : "Policz posiłek przez AI");
   }
 
@@ -2059,6 +2060,7 @@
     elements.rawInput.value = entry.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz zmiany");
+    elements.saveButton.hidden = false;
     elements.cancelEditButton.hidden = false;
     elements.editModeMessage.hidden = false;
     elements.editModeMessage.textContent = `Edytujesz wpis z dnia: ${entry.date}`;
@@ -2075,6 +2077,7 @@
     elements.rawInput.value = dish.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz danie");
+    elements.saveButton.hidden = false;
     elements.cancelEditButton.hidden = false;
     elements.editModeMessage.hidden = false;
     elements.editModeMessage.textContent = `Edytujesz danie: ${dish.name}`;
@@ -2093,6 +2096,7 @@
     elements.saveButton.textContent = "Gem";
     elements.saveButton.setAttribute("aria-label", "Zapisz format Gema");
     elements.saveButton.title = "Zapisz format Gema";
+    elements.saveButton.hidden = true;
     elements.cancelEditButton.hidden = true;
     elements.editModeMessage.hidden = true;
     resizeComposer();
@@ -2371,6 +2375,8 @@
       renderAlerts();
     });
     elements.menuButton.addEventListener("click", openMenu);
+    elements.bottomMenuButton.addEventListener("click", openMenu);
+    elements.bottomAddButton.addEventListener("click", focusComposer);
     elements.closeMenuButton.addEventListener("click", closeMenu);
     elements.menuBackdrop.addEventListener("click", closeMenu);
     elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
@@ -2455,6 +2461,8 @@
       appearanceInstallButton: document.querySelector("#appearance-install-button"),
       backupMessage: document.querySelector("#backup-message"),
       alertsList: document.querySelector("#alerts-list"),
+      bottomAddButton: document.querySelector("#bottom-add-button"),
+      bottomMenuButton: document.querySelector("#bottom-menu-button"),
       cancelEditButton: document.querySelector("#cancel-edit-button"),
       clearButton: document.querySelector("#clear-button"),
       closeMenuButton: document.querySelector("#close-menu-button"),

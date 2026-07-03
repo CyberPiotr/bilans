@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-missing-foods-panel-v28";
-  const APP_LAST_CHANGE = "panel braków i wyraźne badge źródła";
+  const APP_VERSION = "vitatrack-mobile-shell-v29";
+  const APP_LAST_CHANGE = "dolna nawigacja i uproszczony composer";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({
