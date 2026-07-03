@@ -255,6 +255,7 @@
     http: "-",
     errorType: "-",
     errorMessage: "-",
+    foodLookupStatus: "-",
     duration: "-",
     parsedKeys: "-",
     rawResponse: "-",
@@ -1348,6 +1349,7 @@
     elements.debugAiRequest.textContent = aiDebugState.request;
     elements.debugAiFetchStarted.textContent = aiDebugState.fetchStarted;
     elements.debugAiHttp.textContent = aiDebugState.http;
+    elements.debugFoodLookupStatus.textContent = aiDebugState.foodLookupStatus;
     elements.debugAiErrorType.textContent = aiDebugState.errorType;
     elements.debugAiErrorMessage.textContent = aiDebugState.errorMessage;
     elements.debugAiDuration.textContent = aiDebugState.duration;
@@ -1366,6 +1368,9 @@
     elements.debugAiRequest.dataset.state = ["pending", "sent"].includes(aiDebugState.request)
       ? "pending"
       : aiDebugState.request;
+    elements.debugFoodLookupStatus.dataset.state = aiDebugState.foodLookupStatus === "matched"
+      ? "success"
+      : ["not_found", "error"].includes(aiDebugState.foodLookupStatus) ? "error" : "";
     elements.debugAiErrorType.dataset.state = aiDebugState.errorType === "-" ? "" : "error";
     elements.debugAiErrorMessage.dataset.state = aiDebugState.errorMessage === "-" ? "" : "error";
   }
@@ -1390,6 +1395,66 @@
       null_nutrients: nullNutrients,
       missing_nutrients: Array.isArray(payload?.missing_nutrients) ? payload.missing_nutrients.length : 0,
     };
+  }
+
+  function normalizeLookupNutrients(payload) {
+    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
+    return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
+      if (!Object.hasOwn(nutrients, key) || nutrients[key] === null || nutrients[key] === undefined) {
+        return [key, null];
+      }
+      const value = Number(nutrients[key]);
+      return [key, Number.isFinite(value) && value >= 0 ? value : null];
+    }));
+  }
+
+  function sumLookupNutrients(results) {
+    return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
+      let hasNumber = false;
+      const total = results.reduce((sum, result) => {
+        const value = normalizeLookupNutrients(result.payload)[key];
+        if (value === null) return sum;
+        hasNumber = true;
+        return sum + value;
+      }, 0);
+      return [key, hasNumber ? total : null];
+    }));
+  }
+
+  async function resolveMealWithFoodLookup(products, fallbackParsedData) {
+    if (!products.length) {
+      updateAiDebug({ foodLookupStatus: "brak produktów" });
+      return { parsedData: fallbackParsedData, status: "brak produktów" };
+    }
+
+    const results = [];
+    for (const product of products) {
+      try {
+        results.push(await requestFoodLookup({
+          query: product.name,
+          amount_g: product.amountG,
+          variant: null,
+          fdc_id: null,
+          limit: 5,
+        }));
+      } catch (error) {
+        console.warn("[Food Lookup] Technical error, falling back to AI nutrients", error);
+        updateAiDebug({
+          foodLookupStatus: "error",
+          errorType: "food_lookup",
+          errorMessage: shortDebugMessage(error.message),
+        });
+        return { parsedData: fallbackParsedData, status: "error" };
+      }
+    }
+
+    if (results.every((result) => result.kind === "matched")) {
+      updateAiDebug({ foodLookupStatus: "matched" });
+      return { parsedData: sumLookupNutrients(results), status: "matched" };
+    }
+
+    updateAiDebug({ foodLookupStatus: "not_found" });
+    return { parsedData: fallbackParsedData, status: "not_found" };
   }
 
   async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
@@ -1466,6 +1531,7 @@
       http: "-",
       errorType: "-",
       errorMessage: "-",
+      foodLookupStatus: "-",
       duration: "0 ms",
       parsedKeys: "-",
       rawResponse: "-",
@@ -1584,8 +1650,8 @@
 
   async function saveAiMeal(result, input) {
     const nutrientSource = result.parsedData || result.nutrients || result;
-    const parsedData = normalizeAiNutrients(nutrientSource);
-    if (!parsedData) throw new Error("AI parser returned invalid meal nutrients");
+    const fallbackParsedData = normalizeAiNutrients(nutrientSource);
+    if (!fallbackParsedData) throw new Error("AI parser returned invalid meal nutrients");
 
     const date = elements.entryDate.value;
     if (!date) {
@@ -1595,18 +1661,22 @@
     }
 
     const products = normalizeAiProducts(result.produkty || result.products);
+    const lookupResult = await resolveMealWithFoodLookup(products, fallbackParsedData);
     const entry = {
       id: typeof result.id === "string" && result.id ? result.id : createId(),
       date,
       createdAt: typeof result.createdAt === "string" ? result.createdAt : new Date().toISOString(),
       rawText: input,
-      parsedData,
+      parsedData: lookupResult.parsedData,
       tags: normalizeAiTags(result.tagi || result.tags, products),
       products,
     };
     await window.ketoDb.saveEntry(entry);
     cancelEditEntry(false);
-    setMessage(elements.formMessage, "Posiłek policzony przez AI i zapisany.", "success");
+    const sourceMessage = lookupResult.status === "matched"
+      ? "baza: matched"
+      : lookupResult.status === "not_found" ? "baza: not_found, zapisano fallback AI" : `baza: ${lookupResult.status}`;
+    setMessage(elements.formMessage, `Posiłek zapisany. ${sourceMessage}.`, "success");
     await refreshEntries();
     return true;
   }
@@ -2124,6 +2194,7 @@
       debugAiUrl: document.querySelector("#debug-ai-url"),
       debugAppVersion: document.querySelector("#debug-app-version"),
       debugCacheVersion: document.querySelector("#debug-cache-version"),
+      debugFoodLookupStatus: document.querySelector("#debug-food-lookup-status"),
       debugFoodLookupUrl: document.querySelector("#debug-food-lookup-url"),
       debugLastChange: document.querySelector("#debug-last-change"),
       debugResetCostButton: document.querySelector("#debug-reset-cost-button"),

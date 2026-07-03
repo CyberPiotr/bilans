@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-food-lookup-debug-v24";
+const CACHE_NAME = "vitatrack-food-lookup-real-flow-v25";
 const APP_SHELL = [
   "./",
   "./index.html",

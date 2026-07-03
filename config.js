@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-food-lookup-debug-v24";
-  const APP_LAST_CHANGE = "test integracji food-lookup";
+  const APP_VERSION = "vitatrack-food-lookup-real-flow-v25";
+  const APP_LAST_CHANGE = "food-lookup w flow Policz AI";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({
