@@ -1,0 +1,6 @@
+.env
+node_modules/
+supabase/.env
+supabase/.temp/
+supabase/functions/.env
+tmp_reports/

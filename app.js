@@ -55,6 +55,9 @@
     "tluszcze_czyste",
     "zielone_warzywa",
     "warzywa_krzyzowe",
+    "owoce",
+    "straczki",
+    "slodycze",
     "kiszonki",
     "orzechy_pestki",
   ];
@@ -66,7 +69,7 @@
     tluste_ryby: ["tluste_ryby", "tluste ryby", "makrela", "losos", "sledz", "sardynki", "sardynka"],
     owoce_morza_ryby_morskie: [
       "owoce_morza_ryby_morskie", "owoce morza", "ryby morskie", "ryba morska",
-      "tunczyk", "dorsz", "krewetki", "krewetka", "malze", "ostrygi",
+      "tunczyk", "dorsz", "losos", "krewetki", "krewetka", "malze", "ostrygi",
     ],
     podroby: ["podroby", "watrobka", "watroba", "serca", "serce", "nerki", "nerka", "zoladki"],
     mieso_czerwone: [
@@ -86,14 +89,28 @@
     warzywa_krzyzowe: [
       "warzywa_krzyzowe", "warzywa krzyzowe", "kalafior", "brokul", "kapusta", "brukselka", "jarmuz",
     ],
+    owoce: [
+      "owoce", "owoc", "truskawki", "truskawka", "borowki", "borowka", "maliny", "malina",
+      "jablka", "jablko", "gruszki", "gruszka", "banany", "banan", "cytrusy", "winogrona", "kiwi",
+    ],
+    straczki: ["straczki", "ciecierzyca", "fasola", "soczewica", "groch", "soja"],
+    slodycze: ["slodycze", "czekolada", "cukierki", "batony", "baton", "ciastka", "ciasto", "lody"],
     kiszonki: ["kiszonki", "kiszonka", "kapusta kiszona", "ogorki kiszone", "ogorek kiszony", "kimchi"],
     orzechy_pestki: [
       "orzechy_pestki", "orzechy", "pestki", "pestki dyni", "slonecznik", "chia",
       "siemie lniane", "migdaly", "orzechy wloskie", "orzechy brazylijskie",
     ],
-    fermentowane: ["fermentowane"],
-    suplement: ["suplement"],
-    wysokie_wegle: ["wysokie_wegle", "wysokie wegle"],
+    fermentowane: [
+      "fermentowane", "kapusta kiszona", "ogorki kiszone", "ogorek kiszony", "kimchi",
+      "kefir", "jogurt", "sery dojrzewajace", "ser dojrzewajacy",
+    ],
+    suplement: [
+      "suplement", "witamina d3", "magnez", "elektrolity", "omega 3", "omega3", "tran",
+    ],
+    wysokie_wegle: [
+      "wysokie_wegle", "wysokie wegle", "ziemniaki", "ziemniak", "ryz", "kasza",
+      "makaron", "pieczywo", "buraki", "burak",
+    ],
   };
 
   const LABELS = {
@@ -114,7 +131,7 @@
     cynk: "Cynk",
     selen: "Selen",
     jod: "Jod",
-    owoce_morza_ryby_morskie: "Owoce morza i ryby morskie",
+    owoce_morza_ryby_morskie: "Ryby morskie i owoce morza",
     mieso_czerwone: "Mięso czerwone",
     drob: "Drób",
     nabial: "Nabiał",
@@ -124,6 +141,9 @@
     podroby: "Podroby",
     jaja: "Jaja",
     zielone_warzywa: "Zielone warzywa",
+    owoce: "Owoce",
+    straczki: "Strączki",
+    slodycze: "Słodycze",
     kiszonki: "Kiszonki",
     orzechy_pestki: "Orzechy i pestki",
     fermentowane: "Fermentowane",
@@ -220,6 +240,24 @@
   let editingDishId = null;
   let currentView = "start";
   let homeProgressDays = 1;
+  let isAiParsing = false;
+  const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
+  const aiDebugState = {
+    request: "idle",
+    fetchStarted: "nie",
+    http: "-",
+    errorType: "-",
+    errorMessage: "-",
+    duration: "-",
+    parsedKeys: "-",
+    rawResponse: "-",
+    model: "-",
+    inputTokens: "brak danych usage",
+    outputTokens: "brak danych usage",
+    totalTokens: "brak danych usage",
+    lastCost: "brak danych usage",
+    totalCost: readDebugTotalCost(),
+  };
 
   function getDefaultSettings() {
     return {
@@ -1093,6 +1131,13 @@
     document.body.classList.remove("menu-open");
   }
 
+  function toggleDebugPanel() {
+    const willOpen = elements.appDebugPanel.hidden;
+    elements.appDebugPanel.hidden = !willOpen;
+    elements.debugToggleButton.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) renderDebugPanel();
+  }
+
   function resizeComposer() {
     elements.rawInput.style.height = "auto";
     elements.rawInput.style.height = `${Math.min(elements.rawInput.scrollHeight, window.innerHeight * 0.4)}px`;
@@ -1181,6 +1226,377 @@
     } catch (error) {
       console.error(error);
       setMessage(elements.formMessage, "Nie udało się zapisać dania.", "error");
+    }
+  }
+
+  function normalizeAiNutrients(value) {
+    if (!value || typeof value !== "object") return null;
+    const data = {};
+    for (const key of NUTRIENT_KEYS) {
+      const nutrient = Number(value[key]);
+      if (!Number.isFinite(nutrient) || nutrient < 0) return null;
+      data[key] = nutrient;
+    }
+    return data;
+  }
+
+  function normalizeAiProducts(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((product) => ({
+        name: String(product?.name || product?.nazwa || "").trim(),
+        amountG: Number(product?.amountG ?? product?.ilosc_g ?? product?.gramy),
+      }))
+      .filter((product) => product.name && product.amountG > 0);
+  }
+
+  function normalizeAiTags(value, products = []) {
+    const allowedTags = [...TAGS, ...AUXILIARY_TAGS];
+    const aiTags = Array.isArray(value) ? value.filter((tag) => allowedTags.includes(tag)) : [];
+    const productTags = detectTags(products.map((product) => product.name).join(" "));
+    return [...new Set([...aiTags, ...productTags])];
+  }
+
+  function setAiParsing(loading) {
+    isAiParsing = loading;
+    elements.aiParseButton.disabled = loading;
+    elements.saveButton.disabled = loading;
+    elements.clearButton.disabled = loading;
+    elements.aiParseButton.classList.toggle("loading", loading);
+    elements.aiParseButton.textContent = loading ? "Liczenie…" : "Policz AI";
+    elements.aiParseButton.setAttribute("aria-label", loading ? "Trwa liczenie posiłku" : "Policz posiłek przez AI");
+  }
+
+  function shortDebugMessage(value, maxLength = 90) {
+    const text = String(value || "-").replace(/\s+/g, " ").trim();
+    return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+  }
+
+  function readDebugTotalCost() {
+    try {
+      const value = Number(localStorage.getItem(AI_DEBUG_TOTAL_COST_KEY));
+      return Number.isFinite(value) && value >= 0 ? value : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function saveDebugTotalCost(value) {
+    try {
+      localStorage.setItem(AI_DEBUG_TOTAL_COST_KEY, String(value));
+    } catch (error) {
+      console.warn("[AI Parser] Could not save local debug cost total", error);
+    }
+  }
+
+  function formatDebugCost(value) {
+    return Number.isFinite(value) ? `~$${value.toFixed(6)} USD` : "brak danych usage";
+  }
+
+  function applyBackendDebug(debug) {
+    const usage = debug?.usage;
+    const estimatedCost = Number(debug?.estimated_cost_usd);
+    const hasCost = debug?.estimated_cost_usd !== null
+      && debug?.estimated_cost_usd !== undefined
+      && Number.isFinite(estimatedCost)
+      && estimatedCost >= 0;
+    if (hasCost) {
+      aiDebugState.totalCost += estimatedCost;
+      saveDebugTotalCost(aiDebugState.totalCost);
+    }
+    updateAiDebug({
+      model: typeof debug?.model === "string" ? debug.model : "-",
+      inputTokens: Number.isFinite(Number(usage?.input_tokens)) ? String(usage.input_tokens) : "brak danych usage",
+      outputTokens: Number.isFinite(Number(usage?.output_tokens)) ? String(usage.output_tokens) : "brak danych usage",
+      totalTokens: Number.isFinite(Number(usage?.total_tokens)) ? String(usage.total_tokens) : "brak danych usage",
+      lastCost: hasCost
+        ? (typeof debug?.estimated_cost_label === "string" ? debug.estimated_cost_label : formatDebugCost(estimatedCost))
+        : "brak danych usage",
+    });
+  }
+
+  function resetDebugCostTotal() {
+    aiDebugState.totalCost = 0;
+    saveDebugTotalCost(0);
+    renderDebugPanel();
+  }
+
+  function renderDebugPanel() {
+    if (!elements.debugAppVersion) return;
+    const config = window.VITATRACK_CONFIG || {};
+    const functionUrl = String(config.aiParserFunctionUrl || "").trim();
+    const publishableKey = String(config.supabasePublishableKey || "").trim();
+    const keyStatus = publishableKey ? `OK ${publishableKey.slice(0, 8)}…` : "BRAK";
+
+    elements.debugAppVersion.textContent = config.appVersion || "unknown";
+    elements.debugCacheVersion.textContent = config.appVersion || "unknown";
+    elements.debugLastChange.textContent = config.appLastChange || "-";
+    elements.debugSupabaseUrl.textContent = config.supabaseUrl || "BRAK";
+    elements.debugSupabaseUrl.title = config.supabaseUrl || "";
+    elements.debugAiUrl.textContent = functionUrl || "BRAK";
+    elements.debugAiUrl.title = functionUrl;
+    elements.debugAiKey.textContent = keyStatus;
+    elements.debugAiRequest.textContent = aiDebugState.request;
+    elements.debugAiFetchStarted.textContent = aiDebugState.fetchStarted;
+    elements.debugAiHttp.textContent = aiDebugState.http;
+    elements.debugAiErrorType.textContent = aiDebugState.errorType;
+    elements.debugAiErrorMessage.textContent = aiDebugState.errorMessage;
+    elements.debugAiDuration.textContent = aiDebugState.duration;
+    elements.debugAiParsedKeys.textContent = aiDebugState.parsedKeys;
+    elements.debugAiRawResponse.textContent = aiDebugState.rawResponse;
+    elements.debugAiModel.textContent = aiDebugState.model;
+    elements.debugAiInputTokens.textContent = aiDebugState.inputTokens;
+    elements.debugAiOutputTokens.textContent = aiDebugState.outputTokens;
+    elements.debugAiTotalTokens.textContent = aiDebugState.totalTokens;
+    elements.debugAiLastCost.textContent = aiDebugState.lastCost;
+    elements.debugAiTotalCost.textContent = formatDebugCost(aiDebugState.totalCost);
+    elements.debugSupabaseUrl.dataset.state = config.supabaseUrl ? "success" : "error";
+    elements.debugAiUrl.dataset.state = functionUrl ? "success" : "error";
+    elements.debugAiKey.dataset.state = publishableKey ? "success" : "error";
+    elements.debugAiRequest.dataset.state = ["pending", "sent"].includes(aiDebugState.request)
+      ? "pending"
+      : aiDebugState.request;
+    elements.debugAiErrorType.dataset.state = aiDebugState.errorType === "-" ? "" : "error";
+    elements.debugAiErrorMessage.dataset.state = aiDebugState.errorMessage === "-" ? "" : "error";
+  }
+
+  function updateAiDebug(changes) {
+    Object.assign(aiDebugState, changes);
+    renderDebugPanel();
+  }
+
+  async function requestAiParse(input) {
+    const config = window.VITATRACK_CONFIG || {};
+    const functionUrl = String(config.aiParserFunctionUrl || "").trim();
+    const publishableKey = String(config.supabasePublishableKey || "").trim();
+    const requestStartedAt = performance.now();
+    const setDuration = () => updateAiDebug({ duration: `${Math.round(performance.now() - requestStartedAt)} ms` });
+    updateAiDebug({
+      request: "pending",
+      fetchStarted: "nie",
+      http: "-",
+      errorType: "-",
+      errorMessage: "-",
+      duration: "0 ms",
+      parsedKeys: "-",
+      rawResponse: "-",
+      model: "-",
+      inputTokens: "brak danych usage",
+      outputTokens: "brak danych usage",
+      totalTokens: "brak danych usage",
+      lastCost: "brak danych usage",
+    });
+    console.info("[AI Parser] Preparing request", {
+      url: functionUrl || "(missing)",
+      action: "parse_meal",
+      inputLength: input.length,
+    });
+    console.info("[AI Parser] Supabase publishable key", {
+      configured: Boolean(publishableKey),
+      prefix: publishableKey ? `${publishableKey.slice(0, 8)}…` : "(missing)",
+    });
+
+    if (!functionUrl) {
+      updateAiDebug({ request: "failed", errorType: "config", errorMessage: "Brak AI URL" });
+      setDuration();
+      throw new Error("AI parser URL is not configured");
+    }
+    if (!publishableKey) {
+      const error = new Error("Brakuje publicznego klucza Supabase w config.js");
+      error.code = "MISSING_SUPABASE_PUBLISHABLE_KEY";
+      updateAiDebug({
+        request: "failed",
+        errorType: "config",
+        errorMessage: shortDebugMessage(error.message),
+      });
+      setDuration();
+      console.error("[AI Parser] Configuration error", error.message);
+      throw error;
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      apikey: publishableKey,
+    };
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 35_000);
+    let response;
+    try {
+      updateAiDebug({ request: "sent", fetchStarted: "tak" });
+      console.info("[AI Parser] Sending POST", functionUrl);
+      try {
+        response = await fetch(functionUrl, {
+          method: "POST",
+          headers,
+          signal: controller.signal,
+          body: JSON.stringify({ action: "parse_meal", input }),
+        });
+      } catch (error) {
+        updateAiDebug({
+          request: "failed",
+          http: "network",
+          errorType: error.name || "network",
+          errorMessage: shortDebugMessage(error.message || error.name),
+        });
+        setDuration();
+        console.error("[AI Parser] Network request failed", {
+          url: functionUrl,
+          name: error.name,
+          message: error.message,
+        });
+        throw error;
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+
+    console.info("[AI Parser] Response status", response.status);
+    updateAiDebug({ http: String(response.status) });
+    setDuration();
+    const responseText = await response.text();
+    updateAiDebug({ rawResponse: responseText ? responseText.slice(0, 500) : "(empty)" });
+    let result = null;
+    try {
+      result = responseText ? JSON.parse(responseText) : null;
+      updateAiDebug({
+        parsedKeys: result && typeof result === "object" ? Object.keys(result).join(", ") : "(not an object)",
+      });
+    } catch (error) {
+      updateAiDebug({
+        errorType: error.name || "invalid-json",
+        errorMessage: shortDebugMessage(error.message || "Response is not valid JSON"),
+      });
+      console.error("[AI Parser] Response is not valid JSON", {
+        status: response.status,
+        body: responseText,
+        error: error.message,
+      });
+    }
+    if (!response.ok || !result || result.error) {
+      const errorBody = result?.error || responseText || `HTTP ${response.status}`;
+      updateAiDebug({
+        request: "failed",
+        errorType: `HTTP ${response.status}`,
+        errorMessage: shortDebugMessage(errorBody),
+      });
+      setDuration();
+      console.error("[AI Parser] Response error", {
+        status: response.status,
+        body: errorBody,
+      });
+      throw new Error(errorBody);
+    }
+    applyBackendDebug(result._debug);
+    updateAiDebug({ request: "success", errorType: "-", errorMessage: "-" });
+    setDuration();
+    console.info("[AI Parser] Response received successfully");
+    return result;
+  }
+
+  async function saveAiMeal(result, input) {
+    const nutrientSource = result.parsedData || result.nutrients || result;
+    const parsedData = normalizeAiNutrients(nutrientSource);
+    if (!parsedData) throw new Error("AI parser returned invalid meal nutrients");
+
+    const date = elements.entryDate.value;
+    if (!date) {
+      setMessage(elements.formMessage, "Wybierz datę wpisu.", "error");
+      elements.entryDate.focus();
+      return false;
+    }
+
+    const products = normalizeAiProducts(result.produkty || result.products);
+    const entry = {
+      id: typeof result.id === "string" && result.id ? result.id : createId(),
+      date,
+      createdAt: typeof result.createdAt === "string" ? result.createdAt : new Date().toISOString(),
+      rawText: input,
+      parsedData,
+      tags: normalizeAiTags(result.tagi || result.tags, products),
+      products,
+    };
+    await window.ketoDb.saveEntry(entry);
+    cancelEditEntry(false);
+    setMessage(elements.formMessage, "Posiłek policzony przez AI i zapisany.", "success");
+    await refreshEntries();
+    return true;
+  }
+
+  async function saveAiDish(result, input) {
+    const totalData = normalizeAiNutrients(result.totalData);
+    const per100gData = normalizeAiNutrients(result.per100gData);
+    const totalMassG = Number(result.totalMassG);
+    if (!totalData || !per100gData || !Number.isFinite(totalMassG) || totalMassG <= 0) {
+      throw new Error("AI parser returned invalid dish");
+    }
+
+    const id = typeof result.id === "string" && result.id ? result.id : createId();
+    const existingDish = customDishes.find((dish) => dish.id === id);
+    if (existingDish && !window.confirm("Danie o takim ID już istnieje. Nadpisać?")) return false;
+    const now = new Date().toISOString();
+    const products = normalizeAiProducts(result.products);
+    const dish = {
+      id,
+      name: typeof result.name === "string" && result.name.trim() ? result.name.trim() : "Danie AI",
+      totalMassG,
+      massSource: typeof result.massSource === "string" ? result.massSource : "",
+      portionCalculation: typeof result.portionCalculation === "string" ? result.portionCalculation : "",
+      totalData,
+      per100gData,
+      tags: normalizeAiTags(result.tags, products),
+      products,
+      rawText: input,
+      createdAt: existingDish?.createdAt || (typeof result.createdAt === "string" ? result.createdAt : now),
+      updatedAt: now,
+    };
+    await window.ketoDb.saveCustomDish(dish);
+    cancelEditEntry(false);
+    setMessage(elements.formMessage, "Danie policzone przez AI i zapisane w Moje dania.", "success");
+    await refreshEntries();
+    return true;
+  }
+
+  async function handleAiParse() {
+    if (isAiParsing) return;
+    const input = elements.rawInput.value.trim();
+    if (!input) {
+      setMessage(elements.formMessage, "Opisz posiłek przed liczeniem.", "error");
+      elements.rawInput.focus();
+      return;
+    }
+    if (editingEntryId || editingDishId) {
+      setMessage(elements.formMessage, "Zakończ edycję przed dodaniem nowego wpisu przez AI.", "error");
+      return;
+    }
+
+    setAiParsing(true);
+    setMessage(elements.formMessage, "Liczenie posiłku…");
+    try {
+      const result = await requestAiParse(input);
+      if (result.typ === "danie_wieloskladnikowe") {
+        await saveAiDish(result, input);
+      } else {
+        await saveAiMeal(result, input);
+      }
+    } catch (error) {
+      if (aiDebugState.request !== "failed") {
+        updateAiDebug({
+          request: "failed",
+          errorType: error.name || "Error",
+          errorMessage: shortDebugMessage(error.message || error.name),
+        });
+      }
+      console.error("AI parser failed:", error);
+      setMessage(
+        elements.formMessage,
+        error.code === "MISSING_SUPABASE_PUBLISHABLE_KEY"
+          ? "Brakuje publicznego klucza Supabase w config.js"
+          : "AI nie policzyło posiłku. Doprecyzuj opis.",
+        "error",
+      );
+    } finally {
+      setAiParsing(false);
+      resizeComposer();
     }
   }
 
@@ -1287,8 +1703,9 @@
     elements.entryDate.value = localDateString();
     updateDatePickerLabel();
     elements.rawInput.value = "";
-    elements.saveButton.textContent = "↑";
-    elements.saveButton.setAttribute("aria-label", "Zapisz wpis");
+    elements.saveButton.textContent = "Gem";
+    elements.saveButton.setAttribute("aria-label", "Zapisz format Gema");
+    elements.saveButton.title = "Zapisz format Gema";
     elements.cancelEditButton.hidden = true;
     elements.editModeMessage.hidden = true;
     resizeComposer();
@@ -1489,6 +1906,7 @@
   }
 
   function bindEvents() {
+    elements.aiParseButton.addEventListener("click", handleAiParse);
     elements.saveButton.addEventListener("click", handleSave);
     elements.rawInput.addEventListener("input", resizeComposer);
     elements.topAddButton.addEventListener("click", focusComposer);
@@ -1514,6 +1932,8 @@
     elements.menuButton.addEventListener("click", openMenu);
     elements.closeMenuButton.addEventListener("click", closeMenu);
     elements.menuBackdrop.addEventListener("click", closeMenu);
+    elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
+    elements.debugResetCostButton.addEventListener("click", resetDebugCostTotal);
     document.querySelectorAll("[data-view-target]").forEach((button) => {
       button.addEventListener("click", () => switchView(button.dataset.viewTarget));
     });
@@ -1585,6 +2005,8 @@
 
   async function init() {
     Object.assign(elements, {
+      aiParseButton: document.querySelector("#ai-parse-button"),
+      appDebugPanel: document.querySelector("#app-debug-panel"),
       appMenu: document.querySelector("#app-menu"),
       appearanceInstallButton: document.querySelector("#appearance-install-button"),
       backupMessage: document.querySelector("#backup-message"),
@@ -1594,6 +2016,28 @@
       closeMenuButton: document.querySelector("#close-menu-button"),
       composerShell: document.querySelector(".composer-shell"),
       datePickerButton: document.querySelector("#date-picker-button"),
+      debugAiDuration: document.querySelector("#debug-ai-duration"),
+      debugAiErrorMessage: document.querySelector("#debug-ai-error-message"),
+      debugAiErrorType: document.querySelector("#debug-ai-error-type"),
+      debugAiFetchStarted: document.querySelector("#debug-ai-fetch-started"),
+      debugAiHttp: document.querySelector("#debug-ai-http"),
+      debugAiInputTokens: document.querySelector("#debug-ai-input-tokens"),
+      debugAiKey: document.querySelector("#debug-ai-key"),
+      debugAiLastCost: document.querySelector("#debug-ai-last-cost"),
+      debugAiModel: document.querySelector("#debug-ai-model"),
+      debugAiOutputTokens: document.querySelector("#debug-ai-output-tokens"),
+      debugAiParsedKeys: document.querySelector("#debug-ai-parsed-keys"),
+      debugAiRawResponse: document.querySelector("#debug-ai-raw-response"),
+      debugAiRequest: document.querySelector("#debug-ai-request"),
+      debugAiTotalCost: document.querySelector("#debug-ai-total-cost"),
+      debugAiTotalTokens: document.querySelector("#debug-ai-total-tokens"),
+      debugAiUrl: document.querySelector("#debug-ai-url"),
+      debugAppVersion: document.querySelector("#debug-app-version"),
+      debugCacheVersion: document.querySelector("#debug-cache-version"),
+      debugLastChange: document.querySelector("#debug-last-change"),
+      debugResetCostButton: document.querySelector("#debug-reset-cost-button"),
+      debugSupabaseUrl: document.querySelector("#debug-supabase-url"),
+      debugToggleButton: document.querySelector("#debug-toggle-button"),
       dishesList: document.querySelector("#dishes-list"),
       dishesMessage: document.querySelector("#dishes-message"),
       eatingWindowMessage: document.querySelector("#eating-window-message"),
@@ -1627,6 +2071,7 @@
       worthNotes: document.querySelector("#worth-notes"),
     });
 
+    renderDebugPanel();
     elements.entryDate.value = localDateString();
     updateDatePickerLabel();
     resizeComposer();

@@ -1,14 +1,17 @@
-const CACHE_NAME = "vitatrack-pwa-install-v12";
+const CACHE_NAME = "vitatrack-ai-parser-debug-v23";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
+  "./config.js",
   "./app.js",
+  "./service-worker.js",
   "./db.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
 ];
+const NETWORK_FIRST_FILES = new Set(["index.html", "app.js", "config.js", "service-worker.js"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,6 +31,23 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+  const fileName = requestUrl.pathname.split("/").pop() || "index.html";
+  if (requestUrl.origin === self.location.origin && NETWORK_FIRST_FILES.has(fileName)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseCopy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseCopy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request)),
+    );
     return;
   }
 

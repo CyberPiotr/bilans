@@ -1,0 +1,5 @@
+project_id = "vitatrack"
+
+[functions.ai-parser]
+verify_jwt = false
+
