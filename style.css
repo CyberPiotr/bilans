@@ -415,6 +415,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .missing-foods-panel { display: grid; gap: 16px; }
 .missing-foods-panel-header { display: grid; gap: 12px; }
 .missing-foods-panel-header h2 { margin: 0 0 4px; font-size: 1rem; }
+.missing-foods-actions { display: grid; gap: 8px; }
 .missing-foods-list { display: grid; gap: 10px; }
 .missing-food-item {
   display: grid;
@@ -427,8 +428,11 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .missing-food-item header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .missing-food-item h2 { margin: 0; font-size: .95rem; }
 .missing-food-count { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: .68rem; font-weight: 950; }
-.missing-food-meta, .missing-food-source { margin: 0; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
+.missing-food-meta, .missing-food-source, .missing-food-note { margin: 0; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
 .missing-food-source { color: var(--app-text); font-weight: 750; }
+.missing-food-note { padding: 8px 10px; border-radius: 11px; background: var(--app-surface-soft); }
+.missing-food-actions { display: flex; justify-content: flex-end; }
+.missing-food-actions .button { min-height: 36px; padding: 6px 10px; font-size: .72rem; }
 .missing-food-nutrients { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .missing-food-nutrients span { padding: 7px 8px; border-radius: 10px; background: var(--app-surface-soft); color: var(--app-text); font-size: .68rem; font-weight: 800; }
 .missing-foods-empty { padding: 12px; border-radius: 14px; background: var(--app-surface-soft); }

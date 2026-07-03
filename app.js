@@ -242,6 +242,7 @@
   let homeProgressDays = 1;
   let isAiParsing = false;
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
+  const HIDDEN_MISSING_FOODS_KEY = "vitatrack_hidden_missing_foods_v1";
   const FOOD_LOOKUP_TEST_CASES = [
     { query: "jajka", amount_g: 120, variant: null, fdc_id: null, limit: 5 },
     { query: "truskawki", amount_g: 200, variant: null, fdc_id: null, limit: 5 },
@@ -1095,12 +1096,38 @@
     }];
   }
 
-  function collectMissingFoods(sourceEntries = entries) {
+  function getMissingFoodKey(product, entry = {}) {
+    const name = String(product.name || product.query || product.originalName || entry.rawText || "Nieznany produkt").trim();
+    const amount = product.amountG === null || product.amountG === undefined ? "" : String(product.amountG);
+    const source = String(product.originalName || product.query || name).trim();
+    return `${normalizeText(name)}|${amount}|${normalizeText(source)}`;
+  }
+
+  function readHiddenMissingFoodKeys() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(HIDDEN_MISSING_FOODS_KEY) || "[]");
+      return new Set(Array.isArray(stored) ? stored.filter((item) => typeof item === "string") : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function writeHiddenMissingFoodKeys(keys) {
+    try {
+      localStorage.setItem(HIDDEN_MISSING_FOODS_KEY, JSON.stringify([...keys]));
+    } catch (error) {
+      console.warn("Could not save hidden missing foods", error);
+    }
+  }
+
+  function collectMissingFoods(sourceEntries = entries, options = {}) {
+    const includeHidden = options.includeHidden === true;
+    const hiddenKeys = readHiddenMissingFoodKeys();
     const rows = new Map();
     sourceEntries.forEach((entry) => {
       const sourceInfo = getEntryDataSource(entry);
       const products = getMissingFoodProducts(entry);
-      const hasProductLookupMetadata = products.some((product) => product.lookupStatus || product.dataSourceType);
+      const hasProductLookupMetadata = products.some((product) => product.lookupStatus !== null || product.dataSourceType !== null);
       const missingProducts = products.filter((product) => product.lookupStatus === "not_found"
         || product.dataSourceType === "ai_fallback_missing");
       const productsForReview = missingProducts.length
@@ -1111,7 +1138,8 @@
       productsForReview.forEach((product) => {
         const name = product.name || "Nieznany produkt";
         const amountG = product.amountG;
-        const key = `${name.toLocaleLowerCase("pl-PL")}|${amountG ?? ""}`;
+        const key = getMissingFoodKey(product, entry);
+        if (!includeHidden && hiddenKeys.has(key)) return;
         const row = rows.get(key) || {
           key,
           name,
@@ -1119,10 +1147,10 @@
           occurrences: 0,
           lastUsedDate: entry.date,
           latestOriginalText: entry.rawText,
-          aiFallbackNutrients: entry.parsedData || {},
           entryIds: [],
           lookupStatus: product.lookupStatus || "not_found",
           dataSourceType: product.dataSourceType || "ai_fallback_missing",
+          hidden: hiddenKeys.has(key),
         };
 
         row.occurrences += 1;
@@ -1130,7 +1158,6 @@
         if (!row.lastUsedDate || entry.date >= row.lastUsedDate) {
           row.lastUsedDate = entry.date;
           row.latestOriginalText = entry.rawText;
-          row.aiFallbackNutrients = entry.parsedData || {};
         }
         rows.set(key, row);
       });
@@ -1142,10 +1169,11 @@
   function renderMissingFoods() {
     if (!elements.missingFoodsList || !elements.missingFoodsSummary) return;
     const rows = collectMissingFoods();
+    const hiddenCount = collectMissingFoods(entries, { includeHidden: true }).filter((row) => row.hidden).length;
     elements.missingFoodsList.replaceChildren();
     elements.missingFoodsSummary.textContent = rows.length
-      ? `${rows.length} pozycji z brakami w bazie, liczonych z historii.`
-      : "Brak produktów oznaczonych jako brakujące w bazie.";
+      ? `${rows.length} aktywnych braków w bazie${hiddenCount ? `, ukryte: ${hiddenCount}` : ""}.`
+      : hiddenCount ? `Brak aktywnych braków. Ukryte: ${hiddenCount}.` : "Brak produktów oznaczonych jako brakujące w bazie.";
 
     if (!rows.length) {
       const empty = document.createElement("div");
@@ -1182,21 +1210,20 @@
       source.className = "missing-food-source";
       source.textContent = row.latestOriginalText || row.name;
 
-      const nutrients = row.aiFallbackNutrients || {};
-      const macros = document.createElement("div");
-      macros.className = "missing-food-nutrients";
-      [
-        ["kcal", nutrients.kalorie, "kcal"],
-        ["białko", nutrients.bialko, "g"],
-        ["tłuszcz", nutrients.tluszcz, "g"],
-        ["węgle", nutrients.wegle_netto, "g"],
-      ].forEach(([label, value, unit]) => {
-        const chip = document.createElement("span");
-        chip.textContent = `${label}: ${value == null ? "brak" : `${formatNumber(value)} ${unit}`}`;
-        macros.append(chip);
-      });
+      const note = document.createElement("p");
+      note.className = "missing-food-note";
+      note.textContent = "Wartości AI dotyczą całego wpisu, nie pojedynczego brakującego składnika.";
 
-      item.append(header, meta, source, macros);
+      const actions = document.createElement("div");
+      actions.className = "missing-food-actions";
+      const dismiss = document.createElement("button");
+      dismiss.className = "button secondary";
+      dismiss.type = "button";
+      dismiss.textContent = "Oznacz jako obsłużone";
+      dismiss.dataset.dismissMissingFood = row.key;
+      actions.append(dismiss);
+
+      item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
     });
   }
@@ -2309,8 +2336,9 @@
   async function handleExportMissingFoods() {
     try {
       const allEntries = await window.ketoDb.getAllEntries();
-      const missingEntries = allEntries.filter((entry) => getEntryDataSource(entry).type === "ai_fallback_missing");
-      const missingFoods = collectMissingFoods(allEntries).map((row) => ({
+      const missingRows = collectMissingFoods(allEntries);
+      const activeMissingKeys = new Set(missingRows.map((row) => row.key));
+      const missingFoods = missingRows.map((row) => ({
         query: row.name,
         amount_g: row.amountG,
         lookupStatus: row.lookupStatus,
@@ -2318,15 +2346,18 @@
         occurrences: row.occurrences,
         last_used_date: row.lastUsedDate,
         latest_original_text: row.latestOriginalText,
-        aiFallbackNutrients: row.aiFallbackNutrients,
+        note: "AI fallback nutrients belong to the whole entry, not this single missing product.",
         source_entry_ids: row.entryIds,
       }));
-      const entriesForReview = missingEntries.map((entry) => ({
+      const entriesForReview = allEntries.map((entry) => {
+        const products = getMissingFoodProducts(entry).filter((product) => activeMissingKeys.has(getMissingFoodKey(product, entry)));
+        if (!products.length) return null;
+        return {
           id: entry.id,
           date: entry.date,
           originalText: entry.rawText,
           tags: Array.isArray(entry.tags) ? entry.tags : [],
-          products: Array.isArray(entry.products) ? entry.products.map((product) => ({
+          products: products.map((product) => ({
             query: product.name,
             amount_g: product.amountG,
             lookupStatus: product.lookupStatus || null,
@@ -2335,10 +2366,11 @@
             fdcId: product.fdcId ?? null,
             requiresConfirmation: product.requiresConfirmation === true,
             matchType: product.matchType || null,
-          })) : [],
-          aiFallbackNutrients: entry.parsedData || {},
+          })),
+          note: "AI fallback nutrients belong to the whole entry, not each listed missing product.",
           dataSource: getEntryDataSource(entry),
-        }));
+        };
+      }).filter(Boolean);
       const payload = {
         app: "Bilans",
         exportType: "missing_in_food_database",
@@ -2361,6 +2393,20 @@
       console.error(error);
       setMissingFoodsExportMessage("Nie udało się wyeksportować braków w bazie.", "error");
     }
+  }
+
+  function dismissMissingFood(key) {
+    const hiddenKeys = readHiddenMissingFoodKeys();
+    hiddenKeys.add(key);
+    writeHiddenMissingFoodKeys(hiddenKeys);
+    renderMissingFoods();
+    setMessage(elements.missingFoodsMessage, "Brak ukryty w tej przeglądarce. Historia posiłków została bez zmian.", "success");
+  }
+
+  function clearHiddenMissingFoods() {
+    writeHiddenMissingFoodKeys(new Set());
+    renderMissingFoods();
+    setMessage(elements.missingFoodsMessage, "Wyczyszczono listę ukrytych braków.", "success");
   }
 
   function isValidImportedEntry(entry) {
@@ -2523,9 +2569,14 @@
       if (editButton) startEditDish(editButton.dataset.editDishId);
       if (deleteButton) deleteCustomDish(deleteButton.dataset.deleteDishId);
     });
+    elements.missingFoodsList.addEventListener("click", (event) => {
+      const dismissButton = event.target.closest("[data-dismiss-missing-food]");
+      if (dismissButton) dismissMissingFood(dismissButton.dataset.dismissMissingFood);
+    });
     elements.exportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
     elements.missingFoodsExportButton.addEventListener("click", handleExportMissingFoods);
+    elements.clearHiddenMissingFoodsButton.addEventListener("click", clearHiddenMissingFoods);
     elements.importButton.addEventListener("click", () => elements.importInput.click());
     elements.importInput.addEventListener("change", () => {
       const [file] = elements.importInput.files;
@@ -2581,6 +2632,7 @@
       bottomAddButton: document.querySelector("#bottom-add-button"),
       bottomMenuButton: document.querySelector("#bottom-menu-button"),
       cancelEditButton: document.querySelector("#cancel-edit-button"),
+      clearHiddenMissingFoodsButton: document.querySelector("#clear-hidden-missing-foods-button"),
       clearButton: document.querySelector("#clear-button"),
       closeMenuButton: document.querySelector("#close-menu-button"),
       composerShell: document.querySelector(".composer-shell"),
