@@ -144,8 +144,22 @@
         <header class="view-header">
           <span class="eyebrow">Zapisane przepisy</span>
           <h1 id="dishes-heading">Moje dania</h1>
-          <p class="view-lead">Dodaj porcję do bilansu albo zaktualizuj zapisany format z Gema.</p>
+          <p class="view-lead">Utwórz danie do porcjowania albo dodaj porcję zapisanego przepisu do bilansu.</p>
         </header>
+        <section class="surface-card dish-create-panel" aria-labelledby="dish-create-heading">
+          <div>
+            <h2 id="dish-create-heading">Utwórz danie do porcjowania</h2>
+            <p class="muted">Opis trafi do AI Parsera jako przepis, nie jako zjedzony posiłek.</p>
+          </div>
+          <div class="composer dish-create-composer">
+            <label class="sr-only" for="dish-ai-input">Opisz danie do zapisania</label>
+            <textarea id="dish-ai-input" rows="2" placeholder="gulasz: wołowina 600 g, cebula 200 g, oliwa 20 g, pomidory 400 g. Całość po ugotowaniu 1200 g" spellcheck="false"></textarea>
+            <button id="dish-ai-clear-button" class="composer-clear" type="button" aria-label="Wyczyść opis dania" hidden>×</button>
+            <button id="dish-ai-create-button" class="composer-ai" type="button" aria-label="Utwórz danie przez AI" title="Utwórz danie przez AI">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11.5 20 4l-6.4 16-3.1-6.5L4 11.5Zm6.5 2L20 4"/></svg>
+            </button>
+          </div>
+        </section>
         <div id="dishes-list" class="dishes-list"></div>
         <p id="dishes-message" class="message" role="status" aria-live="polite"></p>
       </section>

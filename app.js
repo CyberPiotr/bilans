@@ -241,6 +241,7 @@
   let currentView = "start";
   let homeProgressDays = 1;
   let isAiParsing = false;
+  let isDishAiParsing = false;
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
   const HIDDEN_MISSING_FOODS_KEY = "vitatrack_hidden_missing_foods_v1";
   const FOOD_LOOKUP_TEST_CASES = [
@@ -1395,6 +1396,12 @@
     });
   }
 
+  function resizeDishComposer() {
+    elements.dishAiInput.style.height = "auto";
+    elements.dishAiInput.style.height = `${Math.min(elements.dishAiInput.scrollHeight, window.innerHeight * 0.32)}px`;
+    elements.dishAiClearButton.hidden = !elements.dishAiInput.value;
+  }
+
   function updateDatePickerLabel() {
     const date = elements.entryDate.value || localDateString();
     const label = `Data wpisu: ${formatDate(date)}`;
@@ -1463,6 +1470,9 @@
     const now = new Date().toISOString();
     const dish = {
       ...parsedDish,
+      initialMassG: parsedDish.totalMassG,
+      remainingMassG: parsedDish.totalMassG,
+      usedMassG: 0,
       createdAt: existingDish?.createdAt || now,
       updatedAt: now,
     };
@@ -1491,10 +1501,14 @@
   function normalizeAiProducts(value) {
     if (!Array.isArray(value)) return [];
     return value
-      .map((product) => ({
-        name: String(product?.name || product?.nazwa || "").trim(),
-        amountG: Number(product?.amountG ?? product?.ilosc_g ?? product?.gramy),
-      }))
+      .map((product) => {
+        const source = product && typeof product === "object" ? product : {};
+        return {
+          ...source,
+          name: String(source.name || source.nazwa || "").trim(),
+          amountG: Number(source.amountG ?? source.ilosc_g ?? source.gramy),
+        };
+      })
       .filter((product) => product.name && product.amountG > 0);
   }
 
@@ -1513,6 +1527,15 @@
     elements.aiParseButton.classList.toggle("loading", loading);
     elements.aiParseButton.title = loading ? "Trwa liczenie posiłku" : "Policz posiłek przez AI";
     elements.aiParseButton.setAttribute("aria-label", loading ? "Trwa liczenie posiłku" : "Policz posiłek przez AI");
+  }
+
+  function setDishAiParsing(loading) {
+    isDishAiParsing = loading;
+    elements.dishAiCreateButton.disabled = loading;
+    elements.dishAiClearButton.disabled = loading;
+    elements.dishAiCreateButton.classList.toggle("loading", loading);
+    elements.dishAiCreateButton.title = loading ? "Trwa tworzenie dania" : "Utwórz danie przez AI";
+    elements.dishAiCreateButton.setAttribute("aria-label", loading ? "Trwa tworzenie dania" : "Utwórz danie przez AI");
   }
 
   function shortDebugMessage(value, maxLength = 90) {
@@ -1932,7 +1955,7 @@
     }
   }
 
-  async function requestAiParse(input) {
+  async function requestAiParse(input, action = "parse_meal") {
     const config = window.VITATRACK_CONFIG || {};
     const functionUrl = String(config.aiParserFunctionUrl || "").trim();
     const publishableKey = String(config.supabasePublishableKey || "").trim();
@@ -1956,7 +1979,7 @@
     });
     console.info("[AI Parser] Preparing request", {
       url: functionUrl || "(missing)",
-      action: "parse_meal",
+      action,
       inputLength: input.length,
     });
     console.info("[AI Parser] Supabase publishable key", {
@@ -1997,7 +2020,7 @@
           method: "POST",
           headers,
           signal: controller.signal,
-          body: JSON.stringify({ action: "parse_meal", input }),
+          body: JSON.stringify({ action, input }),
         });
       } catch (error) {
         updateAiDebug({
@@ -2097,11 +2120,31 @@
     return true;
   }
 
-  async function saveAiDish(result, input) {
-    const totalData = normalizeAiNutrients(result.totalData);
-    const per100gData = normalizeAiNutrients(result.per100gData);
-    const totalMassG = Number(result.totalMassG);
-    if (!totalData || !per100gData || !Number.isFinite(totalMassG) || totalMassG <= 0) {
+  function readAiDishMass(result) {
+    return Number(result?.totalMassG ?? result?.masa_calkowita_g ?? result?.masaCalkowitaG);
+  }
+
+  function readAiDishNutrients(result) {
+    return normalizeAiNutrients(result?.totalData || result?.total_data || result?.calosc || result?.nutrients);
+  }
+
+  function readAiDishPer100g(result, totalData, totalMassG) {
+    const directPer100g = normalizeAiNutrients(result?.per100gData || result?.per_100g_data || result?.na_100g);
+    if (directPer100g) return directPer100g;
+    if (!totalData || !Number.isFinite(totalMassG) || totalMassG <= 0) return null;
+    return Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, totalData[key] / totalMassG * 100]));
+  }
+
+  async function saveAiDish(result, input, messageElement = elements.formMessage) {
+    const totalMassG = readAiDishMass(result);
+    if (!Number.isFinite(totalMassG) || totalMassG <= 0) {
+      const error = new Error("AI parser did not return dish total mass");
+      error.code = "MISSING_DISH_TOTAL_MASS";
+      throw error;
+    }
+    const totalData = readAiDishNutrients(result);
+    const per100gData = readAiDishPer100g(result, totalData, totalMassG);
+    if (!totalData || !per100gData) {
       throw new Error("AI parser returned invalid dish");
     }
 
@@ -2109,24 +2152,37 @@
     const existingDish = customDishes.find((dish) => dish.id === id);
     if (existingDish && !window.confirm("Danie o takim ID już istnieje. Nadpisać?")) return false;
     const now = new Date().toISOString();
-    const products = normalizeAiProducts(result.products);
+    const products = normalizeAiProducts(result.products || result.produkty || result.ingredients || result.skladniki);
     const dish = {
       id,
-      name: typeof result.name === "string" && result.name.trim() ? result.name.trim() : "Danie AI",
+      name: typeof (result.name || result.nazwa) === "string" && (result.name || result.nazwa).trim()
+        ? (result.name || result.nazwa).trim()
+        : "Danie AI",
       totalMassG,
+      initialMassG: totalMassG,
+      remainingMassG: totalMassG,
+      usedMassG: 0,
       massSource: typeof result.massSource === "string" ? result.massSource : "",
       portionCalculation: typeof result.portionCalculation === "string" ? result.portionCalculation : "",
       totalData,
       per100gData,
       tags: normalizeAiTags(result.tags, products),
       products,
+      source: {
+        type: "ai_parser_dish",
+        label: "Źródło: AI Parser — danie",
+      },
+      dataSource: {
+        type: "ai_parser_dish",
+        label: "Źródło: AI Parser — danie",
+      },
       rawText: input,
       createdAt: existingDish?.createdAt || (typeof result.createdAt === "string" ? result.createdAt : now),
       updatedAt: now,
     };
     await window.ketoDb.saveCustomDish(dish);
     cancelEditEntry(false);
-    setMessage(elements.formMessage, "Danie policzone przez AI i zapisane w Moje dania.", "success");
+    setMessage(messageElement, "Danie policzone przez AI i zapisane w Moje dania.", "success");
     await refreshEntries();
     return true;
   }
@@ -2172,6 +2228,52 @@
     } finally {
       setAiParsing(false);
       resizeComposer();
+    }
+  }
+
+  async function handleDishAiCreate() {
+    if (isDishAiParsing) return;
+    const input = elements.dishAiInput.value.trim();
+    if (!input) {
+      setMessage(elements.dishesMessage, "Opisz danie przed utworzeniem.", "error");
+      elements.dishAiInput.focus();
+      return;
+    }
+    if (editingEntryId || editingDishId) {
+      setMessage(elements.dishesMessage, "Zakończ edycję przed utworzeniem nowego dania przez AI.", "error");
+      return;
+    }
+
+    setDishAiParsing(true);
+    setMessage(elements.dishesMessage, "Tworzenie dania…");
+    try {
+      const result = await requestAiParse(input, "parse_dish");
+      const saved = await saveAiDish(result, input, elements.dishesMessage);
+      if (saved) {
+        elements.dishAiInput.value = "";
+        resizeDishComposer();
+      }
+    } catch (error) {
+      if (aiDebugState.request !== "failed") {
+        updateAiDebug({
+          request: "failed",
+          errorType: error.name || "Error",
+          errorMessage: shortDebugMessage(error.message || error.name),
+        });
+      }
+      console.error("AI dish parser failed:", error);
+      setMessage(
+        elements.dishesMessage,
+        error.code === "MISSING_SUPABASE_PUBLISHABLE_KEY"
+          ? "Brakuje publicznego klucza Supabase w config.js"
+          : error.code === "MISSING_DISH_TOTAL_MASS"
+            ? "Podaj masę całości dania, np. „Całość po ugotowaniu 1200 g”."
+            : "AI nie utworzyło dania. Doprecyzuj opis i masę całości.",
+        "error",
+      );
+    } finally {
+      setDishAiParsing(false);
+      resizeDishComposer();
     }
   }
 
@@ -2594,6 +2696,14 @@
     elements.aiParseButton.addEventListener("click", handleAiParse);
     elements.saveButton.addEventListener("click", handleSave);
     elements.rawInput.addEventListener("input", resizeComposer);
+    elements.dishAiCreateButton.addEventListener("click", handleDishAiCreate);
+    elements.dishAiInput.addEventListener("input", resizeDishComposer);
+    elements.dishAiClearButton.addEventListener("click", () => {
+      elements.dishAiInput.value = "";
+      setMessage(elements.dishesMessage, "");
+      resizeDishComposer();
+      elements.dishAiInput.focus();
+    });
     elements.topAddButton.addEventListener("click", focusComposer);
     elements.datePickerButton.addEventListener("click", openDatePicker);
     elements.entryDate.addEventListener("change", updateDatePickerLabel);
@@ -2740,6 +2850,9 @@
       debugResetCostButton: document.querySelector("#debug-reset-cost-button"),
       debugSupabaseUrl: document.querySelector("#debug-supabase-url"),
       debugToggleButton: document.querySelector("#debug-toggle-button"),
+      dishAiClearButton: document.querySelector("#dish-ai-clear-button"),
+      dishAiCreateButton: document.querySelector("#dish-ai-create-button"),
+      dishAiInput: document.querySelector("#dish-ai-input"),
       dishesList: document.querySelector("#dishes-list"),
       dishesMessage: document.querySelector("#dishes-message"),
       eatingWindowMessage: document.querySelector("#eating-window-message"),
@@ -2784,6 +2897,7 @@
     elements.entryDate.value = localDateString();
     updateDatePickerLabel();
     resizeComposer();
+    resizeDishComposer();
     bindEvents();
     registerServiceWorker();
     requestPersistentStorage();

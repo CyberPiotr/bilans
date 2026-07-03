@@ -440,6 +440,10 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .missing-food-nutrients span { padding: 7px 8px; border-radius: 10px; background: var(--app-surface-soft); color: var(--app-text); font-size: .68rem; font-weight: 800; }
 .missing-foods-empty { padding: 12px; border-radius: 14px; background: var(--app-surface-soft); }
 
+.dish-create-panel { display: grid; gap: 12px; margin-bottom: 12px; }
+.dish-create-panel h2 { margin-bottom: 4px; font-size: 1rem; }
+.dish-create-panel .muted { margin: 0; font-size: .74rem; }
+.dish-create-composer { width: 100%; max-width: none; }
 .dish-card {
   display: grid;
   gap: 12px;
