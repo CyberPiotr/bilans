@@ -60,6 +60,7 @@
             <div><dt>ostatnia zmiana:</dt><dd id="debug-last-change">-</dd></div>
             <div class="debug-wide"><dt>Supabase URL:</dt><dd id="debug-supabase-url">-</dd></div>
             <div class="debug-wide"><dt>AI function URL:</dt><dd id="debug-ai-url">-</dd></div>
+            <div class="debug-wide"><dt>Food lookup URL:</dt><dd id="debug-food-lookup-url">-</dd></div>
             <div><dt>publiczny key:</dt><dd id="debug-ai-key">-</dd></div>
             <div><dt>ostatni request:</dt><dd id="debug-ai-request">idle</dd></div>
             <div><dt>fetch wystartował:</dt><dd id="debug-ai-fetch-started">nie</dd></div>
@@ -78,6 +79,11 @@
           </dl>
           <p class="debug-cost-note">Koszty są lokalnym oszacowaniem, nie oficjalnym billingiem OpenAI.</p>
           <button id="debug-reset-cost-button" class="button secondary debug-reset-cost" type="button">Resetuj licznik kosztów</button>
+          <section class="debug-food-lookup">
+            <h3>Food lookup</h3>
+            <button id="food-lookup-test-button" class="button secondary debug-food-lookup-button" type="button">Test food-lookup</button>
+            <pre id="food-lookup-test-output" class="debug-food-lookup-output" aria-live="polite">Nie uruchomiono testu.</pre>
+          </section>
         </div>
       </section>
       <div class="menu-storage">

@@ -548,6 +548,18 @@ input, select { width: 100%; min-height: 44px; padding: 8px 10px; border-radius:
 .app-debug-panel dd[data-state="pending"] { color: var(--app-accent-strong); }
 .debug-cost-note { margin: 10px 0 8px; color: var(--app-muted); font-size: .65rem; line-height: 1.4; }
 .debug-reset-cost { width: 100%; min-height: 38px; padding: 7px 9px; font-size: .68rem; }
+.debug-food-lookup { margin-top: 12px; border-top: 1px solid var(--app-border); padding-top: 10px; }
+.debug-food-lookup h3 { margin: 0 0 8px; font-size: .78rem; }
+.debug-food-lookup-button { width: 100%; min-height: 38px; padding: 7px 9px; font-size: .68rem; }
+.debug-food-lookup-output {
+  max-height: 180px;
+  margin: 8px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--app-text);
+  font: inherit;
+}
 
 @keyframes ai-pulse {
   from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--app-accent) 10%, transparent); }

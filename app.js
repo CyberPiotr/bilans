@@ -242,6 +242,13 @@
   let homeProgressDays = 1;
   let isAiParsing = false;
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
+  const FOOD_LOOKUP_TEST_CASES = [
+    { query: "jajka", amount_g: 120, variant: null, fdc_id: null, limit: 5 },
+    { query: "truskawki", amount_g: 200, variant: null, fdc_id: null, limit: 5 },
+    { query: "oliwa", amount_g: 10, variant: null, fdc_id: null, limit: 5 },
+    { query: "brokul", amount_g: 150, variant: null, fdc_id: null, limit: 5 },
+    { query: "papaja", amount_g: 100, variant: null, fdc_id: null, limit: 5 },
+  ];
   const aiDebugState = {
     request: "idle",
     fetchStarted: "nie",
@@ -1335,6 +1342,8 @@
     elements.debugSupabaseUrl.title = config.supabaseUrl || "";
     elements.debugAiUrl.textContent = functionUrl || "BRAK";
     elements.debugAiUrl.title = functionUrl;
+    elements.debugFoodLookupUrl.textContent = config.foodLookupFunctionUrl || "BRAK";
+    elements.debugFoodLookupUrl.title = config.foodLookupFunctionUrl || "";
     elements.debugAiKey.textContent = keyStatus;
     elements.debugAiRequest.textContent = aiDebugState.request;
     elements.debugAiFetchStarted.textContent = aiDebugState.fetchStarted;
@@ -1352,6 +1361,7 @@
     elements.debugAiTotalCost.textContent = formatDebugCost(aiDebugState.totalCost);
     elements.debugSupabaseUrl.dataset.state = config.supabaseUrl ? "success" : "error";
     elements.debugAiUrl.dataset.state = functionUrl ? "success" : "error";
+    elements.debugFoodLookupUrl.dataset.state = config.foodLookupFunctionUrl ? "success" : "error";
     elements.debugAiKey.dataset.state = publishableKey ? "success" : "error";
     elements.debugAiRequest.dataset.state = ["pending", "sent"].includes(aiDebugState.request)
       ? "pending"
@@ -1363,6 +1373,85 @@
   function updateAiDebug(changes) {
     Object.assign(aiDebugState, changes);
     renderDebugPanel();
+  }
+
+  function summarizeFoodLookupPayload(payload) {
+    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : null;
+    const nutrientKeys = nutrients ? Object.keys(nutrients) : [];
+    const nullNutrients = nutrients
+      ? nutrientKeys.filter((key) => nutrients[key] === null).length
+      : 0;
+    return {
+      status: payload?.status || "-",
+      product_name: payload?.product_name || payload?.product?.product_name || payload?.product?.name || "-",
+      fdc_id: payload?.fdc_id ?? payload?.product?.fdc_id ?? null,
+      factor: payload?.factor ?? payload?.amount?.factor ?? null,
+      nutrient_keys: nutrientKeys.length,
+      null_nutrients: nullNutrients,
+      missing_nutrients: Array.isArray(payload?.missing_nutrients) ? payload.missing_nutrients.length : 0,
+    };
+  }
+
+  async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
+    const config = window.VITATRACK_CONFIG || {};
+    const functionUrl = String(config.foodLookupFunctionUrl || "").trim();
+    if (!functionUrl) {
+      throw new Error("Food lookup URL is not configured");
+    }
+
+    const response = await fetch(functionUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, amount_g, variant, fdc_id, limit }),
+    });
+    const responseText = await response.text();
+    let payload = null;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      throw new Error(`Food lookup returned non-JSON response: HTTP ${response.status}`);
+    }
+
+    if (response.ok && payload?.status === "matched") {
+      return { kind: "matched", http: response.status, payload };
+    }
+    if (response.status === 404 && payload?.status === "not_found") {
+      return { kind: "not_found", http: response.status, payload };
+    }
+    throw new Error(`Food lookup technical error: HTTP ${response.status}`);
+  }
+
+  function formatFoodLookupTestResult(testCase, result) {
+    if (result.kind === "not_found") {
+      return `${testCase.query} ${testCase.amount_g} g -> HTTP ${result.http}, not_found`;
+    }
+    const summary = summarizeFoodLookupPayload(result.payload);
+    return [
+      `${testCase.query} ${testCase.amount_g} g -> HTTP ${result.http}, matched`,
+      `  product: ${summary.product_name}`,
+      `  fdc_id: ${summary.fdc_id ?? "-"}`,
+      `  factor: ${summary.factor ?? "-"}`,
+      `  nutrient keys: ${summary.nutrient_keys}, null nutrients: ${summary.null_nutrients}, missing: ${summary.missing_nutrients}`,
+    ].join("\n");
+  }
+
+  async function runFoodLookupSmokeTest() {
+    elements.foodLookupTestButton.disabled = true;
+    elements.foodLookupTestOutput.textContent = "Test food-lookup w toku...";
+    const lines = [];
+    try {
+      for (const testCase of FOOD_LOOKUP_TEST_CASES) {
+        try {
+          const result = await requestFoodLookup(testCase);
+          lines.push(formatFoodLookupTestResult(testCase, result));
+        } catch (error) {
+          lines.push(`${testCase.query} ${testCase.amount_g} g -> błąd techniczny: ${error.message}`);
+        }
+      }
+      elements.foodLookupTestOutput.textContent = lines.join("\n\n");
+    } finally {
+      elements.foodLookupTestButton.disabled = false;
+    }
   }
 
   async function requestAiParse(input) {
@@ -1934,6 +2023,7 @@
     elements.menuBackdrop.addEventListener("click", closeMenu);
     elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
     elements.debugResetCostButton.addEventListener("click", resetDebugCostTotal);
+    elements.foodLookupTestButton.addEventListener("click", runFoodLookupSmokeTest);
     document.querySelectorAll("[data-view-target]").forEach((button) => {
       button.addEventListener("click", () => switchView(button.dataset.viewTarget));
     });
@@ -2034,6 +2124,7 @@
       debugAiUrl: document.querySelector("#debug-ai-url"),
       debugAppVersion: document.querySelector("#debug-app-version"),
       debugCacheVersion: document.querySelector("#debug-cache-version"),
+      debugFoodLookupUrl: document.querySelector("#debug-food-lookup-url"),
       debugLastChange: document.querySelector("#debug-last-change"),
       debugResetCostButton: document.querySelector("#debug-reset-cost-button"),
       debugSupabaseUrl: document.querySelector("#debug-supabase-url"),
@@ -2048,6 +2139,8 @@
       entryDate: document.querySelector("#entry-date"),
       exportButton: document.querySelector("#export-button"),
       formMessage: document.querySelector("#form-message"),
+      foodLookupTestButton: document.querySelector("#food-lookup-test-button"),
+      foodLookupTestOutput: document.querySelector("#food-lookup-test-output"),
       homePeriodButtons: [...document.querySelectorAll("[data-home-days]")],
       homeProgressList: document.querySelector("#home-progress-list"),
       importButton: document.querySelector("#import-button"),
