@@ -389,6 +389,11 @@ body[data-current-view]:not([data-current-view="start"]) .composer-shell { displ
 .entry-item { display: grid; gap: 10px; padding: 14px; border-radius: 18px; }
 .entry-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .entry-date { font-weight: 850; }
+.source-badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; font-size: .62rem; font-weight: 900; line-height: 1; }
+.source-badge.database { background: color-mix(in srgb, var(--app-success) 18%, var(--app-surface-soft)); color: var(--app-success); }
+.source-badge.proxy { background: color-mix(in srgb, var(--app-warning-border) 28%, var(--app-surface-soft)); color: var(--app-warning); }
+.source-badge.missing, .source-badge.error { background: var(--app-danger-bg); color: var(--app-danger); }
+.source-badge.unknown { background: var(--app-surface-soft); color: var(--app-muted); }
 .entry-actions { display: flex; gap: 6px; }
 .edit-button, .delete-button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; font-size: .76rem; font-weight: 800; }
 .edit-button { background: var(--app-surface-soft); color: var(--app-accent-strong); }

@@ -524,6 +524,33 @@
     return { ...existingEntry, date, rawText, parsedData, tags, products, updatedAt };
   }
 
+  function getEntryDataSource(entry) {
+    const source = entry?.dataSource || entry?.nutritionSource;
+    if (!source || typeof source !== "object") {
+      return {
+        type: "unknown",
+        label: "Źródło nieznane",
+        badgeText: "Źródło nieznane",
+        className: "unknown",
+        foodLookupStatus: null,
+      };
+    }
+    const type = source.type || "unknown";
+    if (type === "food_database") {
+      return { ...source, badgeText: "Baza", className: "database" };
+    }
+    if (type === "food_database_proxy") {
+      return { ...source, badgeText: "Baza proxy", className: "proxy" };
+    }
+    if (type === "ai_fallback_missing") {
+      return { ...source, badgeText: "Brak w bazie", className: "missing" };
+    }
+    if (type === "ai_fallback_database_error" || type === "ai_fallback_database_mapping_error") {
+      return { ...source, badgeText: "Błąd bazy / AI", className: "error" };
+    }
+    return { ...source, badgeText: source.label || "Źródło nieznane", className: "unknown" };
+  }
+
   function formatNumber(value) {
     return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 }).format(value || 0);
   }
@@ -955,6 +982,10 @@
         const date = document.createElement("span");
         date.className = "entry-date";
         date.textContent = formatDate(entry.date);
+        const sourceInfo = getEntryDataSource(entry);
+        const sourceBadge = document.createElement("span");
+        sourceBadge.className = `source-badge ${sourceInfo.className}`;
+        sourceBadge.textContent = sourceInfo.badgeText;
         const actions = document.createElement("div");
         actions.className = "entry-actions";
         const editButton = document.createElement("button");
@@ -968,7 +999,7 @@
         deleteButton.textContent = "Usuń";
         deleteButton.dataset.deleteEntryId = entry.id;
         actions.append(editButton, deleteButton);
-        top.append(date, actions);
+        top.append(date, sourceBadge, actions);
 
         const macros = document.createElement("div");
         macros.className = "macro-list";
@@ -998,10 +1029,10 @@
         const detailsSummary = document.createElement("summary");
         detailsSummary.textContent = "Szczegóły wpisu";
         details.append(detailsSummary);
-        if (entry.nutritionSource?.label) {
+        if (sourceInfo.label) {
           const source = document.createElement("p");
           source.className = "entry-source";
-          source.textContent = entry.nutritionSource.label;
+          source.textContent = sourceInfo.label;
           details.append(source);
         }
         const products = Array.isArray(entry.products) ? entry.products : [];
@@ -1438,7 +1469,12 @@
       return {
         parsedData: fallbackParsedData,
         status: "brak produktów",
-        source: { type: "ai_fallback", label: "Źródło: AI fallback — brak produktów do sprawdzenia w bazie" },
+        source: {
+          type: "unknown",
+          label: "Źródło nieznane",
+          foodLookupStatus: null,
+          requiresConfirmation: false,
+        },
       };
     }
 
@@ -1462,7 +1498,13 @@
         return {
           parsedData: fallbackParsedData,
           status: "error",
-          source: { type: "ai_fallback_database_error", label: "Źródło: AI fallback — błąd techniczny bazy" },
+          source: {
+            type: "ai_fallback_database_error",
+            label: "Źródło: AI fallback — błąd techniczny bazy",
+            foodLookupStatus: "error",
+            requiresConfirmation: false,
+            originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+          },
         };
       }
     }
@@ -1474,20 +1516,43 @@
         return {
           parsedData: fallbackParsedData,
           status: "database_mapping_error",
-          source: { type: "ai_fallback_database_mapping_error", label: "Źródło: AI fallback — błąd mapowania bazy" },
+          source: {
+            type: "ai_fallback_database_mapping_error",
+            label: "Źródło: AI fallback — błąd mapowania bazy",
+            foodLookupStatus: "error",
+            requiresConfirmation: true,
+            originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+          },
         };
       }
       const requiresConfirmation = results.some((result) => result.payload?.match?.requires_confirmation === true);
       const usesProxy = results.some((result) => result.payload?.product?.is_proxy === true
         || result.payload?.match?.match_type === "proxy"
         || result.payload?.product?.source === "usda_proxy");
+      const firstMatched = results[0]?.payload;
       updateAiDebug({ foodLookupStatus: "matched" });
       return {
         parsedData: databaseParsedData,
         status: "matched",
         source: usesProxy || requiresConfirmation
-          ? { type: "database_proxy_confirmation", label: "Źródło: baza proxy — wymaga potwierdzenia" }
-          : { type: "database", label: "Źródło: baza żywności" },
+          ? {
+            type: "food_database_proxy",
+            label: "Źródło: baza proxy — wymaga potwierdzenia",
+            foodLookupStatus: "matched",
+            requiresConfirmation: true,
+            fdcId: firstMatched?.product?.fdc_id ?? null,
+            productName: firstMatched?.product?.product_name || null,
+            originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+          }
+          : {
+            type: "food_database",
+            label: "Źródło: baza żywności",
+            foodLookupStatus: "matched",
+            requiresConfirmation: false,
+            fdcId: firstMatched?.product?.fdc_id ?? null,
+            productName: firstMatched?.product?.product_name || null,
+            originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+          },
       };
     }
 
@@ -1495,7 +1560,13 @@
     return {
       parsedData: fallbackParsedData,
       status: "not_found",
-      source: { type: "ai_fallback_not_found", label: "Źródło: AI fallback — brak w bazie" },
+      source: {
+        type: "ai_fallback_missing",
+        label: "Źródło: AI fallback — brak w bazie",
+        foodLookupStatus: "not_found",
+        requiresConfirmation: false,
+        originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+      },
     };
   }
 
@@ -1713,6 +1784,7 @@
       tags: normalizeAiTags(result.tagi || result.tags, products),
       products,
       nutritionSource: lookupResult.source,
+      dataSource: lookupResult.source,
     };
     await window.ketoDb.saveEntry(entry);
     cancelEditEntry(false);
@@ -2003,6 +2075,46 @@
     }
   }
 
+  async function handleExportMissingFoods() {
+    try {
+      const allEntries = await window.ketoDb.getAllEntries();
+      const missingEntries = allEntries
+        .filter((entry) => getEntryDataSource(entry).type === "ai_fallback_missing")
+        .map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          originalText: entry.rawText,
+          tags: Array.isArray(entry.tags) ? entry.tags : [],
+          products: Array.isArray(entry.products) ? entry.products.map((product) => ({
+            query: product.name,
+            amount_g: product.amountG,
+          })) : [],
+          aiFallbackNutrients: entry.parsedData || {},
+          dataSource: getEntryDataSource(entry),
+        }));
+      const payload = {
+        app: "Bilans",
+        exportType: "missing_in_food_database",
+        exportedAt: new Date().toISOString(),
+        count: missingEntries.length,
+        entries: missingEntries,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "vitatrack-missing-foods.json";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage(elements.backupMessage, `Wyeksportowano ${missingEntries.length} braków w bazie.`, "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.backupMessage, "Nie udało się wyeksportować braków w bazie.", "error");
+    }
+  }
+
   function isValidImportedEntry(entry) {
     return Boolean(
       entry
@@ -2162,6 +2274,7 @@
       if (deleteButton) deleteCustomDish(deleteButton.dataset.deleteDishId);
     });
     elements.exportButton.addEventListener("click", handleExport);
+    elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
     elements.importButton.addEventListener("click", () => elements.importInput.click());
     elements.importInput.addEventListener("change", () => {
       const [file] = elements.importInput.files;
@@ -2252,6 +2365,7 @@
       entryCount: document.querySelector("#entry-count"),
       entryDate: document.querySelector("#entry-date"),
       exportButton: document.querySelector("#export-button"),
+      exportMissingFoodsButton: document.querySelector("#export-missing-foods-button"),
       formMessage: document.querySelector("#form-message"),
       foodLookupTestButton: document.querySelector("#food-lookup-test-button"),
       foodLookupTestOutput: document.querySelector("#food-lookup-test-output"),
