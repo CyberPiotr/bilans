@@ -546,6 +546,9 @@
     if (type === "ai_fallback_missing") {
       return { ...source, badgeText: "! Brak w bazie", className: "missing" };
     }
+    if (type === "mixed_food_database_ai_fallback") {
+      return { ...source, badgeText: "Baza + brak", className: "mixed" };
+    }
     if (type === "ai_fallback_database_error" || type === "ai_fallback_database_mapping_error") {
       return { ...source, badgeText: "! Błąd bazy / AI", className: "error" };
     }
@@ -1221,7 +1224,13 @@
       dismiss.type = "button";
       dismiss.textContent = "Oznacz jako obsłużone";
       dismiss.dataset.dismissMissingFood = row.key;
-      actions.append(dismiss);
+      const remove = document.createElement("button");
+      remove.className = "button secondary";
+      remove.type = "button";
+      remove.textContent = "Usuń z listy";
+      // Obie akcje tylko ukrywają brak lokalnie; historia i IndexedDB zostają bez zmian.
+      remove.dataset.dismissMissingFood = row.key;
+      actions.append(dismiss, remove);
 
       item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
@@ -1805,6 +1814,24 @@
       };
     }
 
+    const hasMatched = results.some(({ result }) => result.kind === "matched");
+    const hasNotFound = results.some(({ result }) => result.kind === "not_found");
+    if (hasMatched && hasNotFound) {
+      updateAiDebug({ foodLookupStatus: "mixed" });
+      return {
+        parsedData: fallbackParsedData,
+        status: "mixed",
+        products: results.map(({ product, result }) => createProductLookupMetadata(product, result)),
+        source: {
+          type: "mixed_food_database_ai_fallback",
+          label: "Źródło: częściowo z bazy + AI fallback",
+          foodLookupStatus: "mixed",
+          requiresConfirmation: results.some(({ result }) => isProxyLookupResult(result)),
+          originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+        },
+      };
+    }
+
     updateAiDebug({ foodLookupStatus: "not_found" });
     return {
       parsedData: fallbackParsedData,
@@ -2040,6 +2067,7 @@
     cancelEditEntry(false);
     const sourceMessage = lookupResult.status === "matched"
       ? "baza: matched"
+      : lookupResult.status === "mixed" ? "baza: częściowo, fallback AI dla całości"
       : lookupResult.status === "not_found" ? "baza: not_found, zapisano fallback AI" : `baza: ${lookupResult.status}`;
     setMessage(elements.formMessage, `Posiłek zapisany. ${sourceMessage}.`, "success");
     await refreshEntries();
