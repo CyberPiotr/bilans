@@ -244,6 +244,7 @@
   let isDishAiParsing = false;
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
   const HIDDEN_MISSING_FOODS_KEY = "vitatrack_hidden_missing_foods_v1";
+  const REMOVED_MISSING_FOODS_KEY = "vitatrack_removed_missing_foods_v1";
   const FOOD_LOOKUP_TEST_CASES = [
     { query: "jajka", amount_g: 120, variant: null, fdc_id: null, limit: 5 },
     { query: "truskawki", amount_g: 200, variant: null, fdc_id: null, limit: 5 },
@@ -1301,10 +1302,28 @@
     }
   }
 
+  function readRemovedMissingFoodKeys() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(REMOVED_MISSING_FOODS_KEY) || "[]");
+      return new Set(Array.isArray(stored) ? stored.filter((item) => typeof item === "string") : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function writeRemovedMissingFoodKeys(keys) {
+    try {
+      localStorage.setItem(REMOVED_MISSING_FOODS_KEY, JSON.stringify([...keys]));
+    } catch (error) {
+      console.warn("Could not save removed missing foods", error);
+    }
+  }
+
   function collectMissingFoods(sourceEntries = entries, options = {}) {
     const includeHidden = options.includeHidden === true;
     const sourceDishes = Array.isArray(options.customDishes) ? options.customDishes : customDishes;
     const hiddenKeys = readHiddenMissingFoodKeys();
+    const removedKeys = readRemovedMissingFoodKeys();
     const rows = new Map();
     sourceEntries.forEach((entry) => {
       const sourceInfo = getEntryDataSource(entry);
@@ -1321,6 +1340,7 @@
         const name = product.name || "Nieznany produkt";
         const amountG = product.amountG;
         const key = getMissingFoodKey(product, entry);
+        if (removedKeys.has(key)) return;
         if (!includeHidden && hiddenKeys.has(key)) return;
         const row = rows.get(key) || {
           key,
@@ -1360,6 +1380,7 @@
         const name = product.name || "Nieznany składnik";
         const amountG = product.amountG;
         const key = getMissingFoodKey(product, pseudoEntry);
+        if (removedKeys.has(key)) return;
         if (!includeHidden && hiddenKeys.has(key)) return;
         const row = rows.get(key) || {
           key,
@@ -1453,11 +1474,11 @@
       hide.textContent = "Ukryj brak";
       hide.dataset.hideMissingFood = row.key;
       const remove = document.createElement("button");
-      remove.className = "button secondary";
+      remove.className = "button danger";
       remove.type = "button";
       remove.textContent = "Usuń z listy";
-      remove.dataset.hideMissingFood = row.key;
-      // Te akcje tylko ukrywają brak lokalnie; historia, przepisy i IndexedDB zostają bez zmian.
+      remove.dataset.removeMissingFood = row.key;
+      // Te akcje zmieniają tylko widoczność braku w panelu; historia, przepisy i IndexedDB zostają bez zmian.
       actions.append(hide, remove);
       if (row.latestEntryId) {
         const deleteEntry = document.createElement("button");
@@ -2949,6 +2970,22 @@
     setMessage(elements.missingFoodsMessage, "Brak ukryty w tej przeglądarce. Historia posiłków została bez zmian.", "success");
   }
 
+  function removeMissingFood(key) {
+    if (!key) return;
+    if (!window.confirm("Trwale usunąć ten brak z listy? Nie usunie to przepisu ani historii, ale brak nie wróci po wyczyszczeniu ukrytych.")) {
+      return;
+    }
+    const removedKeys = readRemovedMissingFoodKeys();
+    removedKeys.add(key);
+    writeRemovedMissingFoodKeys(removedKeys);
+    const hiddenKeys = readHiddenMissingFoodKeys();
+    if (hiddenKeys.delete(key)) {
+      writeHiddenMissingFoodKeys(hiddenKeys);
+    }
+    renderMissingFoods();
+    setMessage(elements.missingFoodsMessage, "Brak trwale usunięty z listy. Przepisy i historia zostały bez zmian.", "success");
+  }
+
   function clearHiddenMissingFoods() {
     writeHiddenMissingFoodKeys(new Set());
     renderMissingFoods();
@@ -3125,8 +3162,10 @@
     });
     elements.missingFoodsList.addEventListener("click", (event) => {
       const hideButton = event.target.closest("[data-hide-missing-food]");
+      const removeButton = event.target.closest("[data-remove-missing-food]");
       const deleteEntryButton = event.target.closest("[data-delete-history-entry-from-missing]");
       if (hideButton) dismissMissingFood(hideButton.dataset.hideMissingFood);
+      if (removeButton) removeMissingFood(removeButton.dataset.removeMissingFood);
       if (deleteEntryButton) deleteMissingFoodEntry(deleteEntryButton.dataset.deleteHistoryEntryFromMissing);
     });
     elements.exportButton.addEventListener("click", handleExport);
