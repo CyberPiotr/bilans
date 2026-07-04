@@ -1452,8 +1452,13 @@
       hide.type = "button";
       hide.textContent = "Ukryj brak";
       hide.dataset.hideMissingFood = row.key;
-      // Ta akcja tylko ukrywa brak lokalnie; historia, dania i IndexedDB zostają bez zmian.
-      actions.append(hide);
+      const remove = document.createElement("button");
+      remove.className = "button secondary";
+      remove.type = "button";
+      remove.textContent = "Usuń z listy";
+      remove.dataset.hideMissingFood = row.key;
+      // Te akcje tylko ukrywają brak lokalnie; historia, przepisy i IndexedDB zostają bez zmian.
+      actions.append(hide, remove);
       if (row.latestEntryId) {
         const deleteEntry = document.createElement("button");
         deleteEntry.className = "button danger";
@@ -1462,15 +1467,6 @@
         deleteEntry.dataset.deleteHistoryEntryFromMissing = row.latestEntryId;
         actions.append(deleteEntry);
       }
-      if (row.latestDishId) {
-        const deleteDish = document.createElement("button");
-        deleteDish.className = "button danger";
-        deleteDish.type = "button";
-        deleteDish.textContent = "Usuń przepis";
-        deleteDish.dataset.deleteCustomDishFromMissing = row.latestDishId;
-        actions.append(deleteDish);
-      }
-
       item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
     });
@@ -2814,32 +2810,6 @@
     }
   }
 
-  async function deleteCustomDishFromMissing(id) {
-    if (!id) {
-      setMessage(elements.missingFoodsMessage, "Nie znaleziono przepisu dla tego braku.", "error");
-      return;
-    }
-    const dish = customDishes.find((item) => item.id === id);
-    if (!dish) {
-      setMessage(elements.missingFoodsMessage, "Nie znaleziono przepisu dla tego braku.", "error");
-      await refreshEntries();
-      return;
-    }
-    if (!window.confirm(`Usunąć przepis: ${dish.name}? Tej akcji nie można cofnąć. Historia posiłków zostanie bez zmian.`)) {
-      return;
-    }
-
-    try {
-      await window.ketoDb.deleteCustomDish(id);
-      if (editingDishId === id) cancelEditEntry();
-      await refreshEntries();
-      setMessage(elements.missingFoodsMessage, "Przepis usunięty. Historia posiłków została bez zmian.", "success");
-    } catch (error) {
-      console.error(error);
-      setMessage(elements.missingFoodsMessage, "Nie udało się usunąć przepisu.", "error");
-    }
-  }
-
   async function handleExport() {
     try {
       const [allEntries, allCustomDishes] = await Promise.all([
@@ -3156,10 +3126,8 @@
     elements.missingFoodsList.addEventListener("click", (event) => {
       const hideButton = event.target.closest("[data-hide-missing-food]");
       const deleteEntryButton = event.target.closest("[data-delete-history-entry-from-missing]");
-      const deleteDishButton = event.target.closest("[data-delete-custom-dish-from-missing]");
       if (hideButton) dismissMissingFood(hideButton.dataset.hideMissingFood);
       if (deleteEntryButton) deleteMissingFoodEntry(deleteEntryButton.dataset.deleteHistoryEntryFromMissing);
-      if (deleteDishButton) deleteCustomDishFromMissing(deleteDishButton.dataset.deleteCustomDishFromMissing);
     });
     elements.exportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
