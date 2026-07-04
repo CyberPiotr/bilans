@@ -396,7 +396,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .source-badge.mixed { border-color: #0ea5e9; background: #e0f2fe; color: #075985; box-shadow: inset 0 0 0 1px rgba(14, 165, 233, .18); }
 .source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, .18); }
 .source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
-.source-badge.custom-dish { border-color: color-mix(in srgb, var(--app-accent) 38%, transparent); background: var(--app-tag-bg); color: var(--app-accent-strong); }
+.source-badge.custom-dish { border-color: #2563eb; background: #dbeafe; color: #1d4ed8; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .18); }
 .source-badge.unknown { border-color: var(--app-border); background: var(--app-surface-soft); color: var(--app-muted); }
 .entry-actions { display: flex; gap: 6px; }
 .edit-button, .delete-button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; font-size: .76rem; font-weight: 800; }
@@ -440,7 +440,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .missing-food-meta, .missing-food-source, .missing-food-note { margin: 0; color: var(--app-muted); font-size: .72rem; line-height: 1.45; }
 .missing-food-source { color: var(--app-text); font-weight: 750; }
 .missing-food-note { padding: 8px 10px; border-radius: 11px; background: var(--app-surface-soft); }
-.missing-food-actions { display: flex; justify-content: flex-end; }
+.missing-food-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .missing-food-actions .button { min-height: 36px; padding: 6px 10px; font-size: .72rem; }
 .missing-food-actions .button.danger { border-color: color-mix(in srgb, var(--app-danger) 38%, var(--app-border)); background: var(--app-danger-bg); color: var(--app-danger); }
 .missing-food-nutrients { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -465,6 +465,8 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .dish-card header span, .dish-macro { color: var(--app-muted); font-size: .72rem; font-weight: 700; }
 .dish-macro { margin: 0; }
 .dish-source { margin: 0; padding: 7px 9px; border-radius: 11px; background: var(--app-surface-soft); color: var(--app-muted); font-size: .72rem; font-weight: 850; }
+.dish-source-badges { justify-content: flex-start; gap: 6px; }
+.ingredient-source-summary { justify-content: flex-start; gap: 6px; }
 .dish-source.database { color: var(--app-success); background: var(--app-success-bg); }
 .dish-source.proxy, .dish-source.mixed { color: var(--app-warning); background: var(--app-warning-bg); }
 .dish-source.missing, .dish-source.error { color: var(--app-danger); background: var(--app-danger-bg); }

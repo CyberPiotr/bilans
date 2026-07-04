@@ -606,6 +606,64 @@
     item.append(" ", badge);
   }
 
+  function getIngredientSourceCounts(products = []) {
+    return products.reduce((counts, product) => {
+      const source = getProductSourceBadgeInfo(product);
+      if (!source) return counts;
+      if (source.className === "database") counts.database += 1;
+      if (source.className === "proxy") counts.proxy += 1;
+      if (source.className === "missing") counts.missing += 1;
+      if (source.className === "error") counts.error += 1;
+      return counts;
+    }, { database: 0, proxy: 0, missing: 0, error: 0 });
+  }
+
+  function getDishIngredientSourceBadges(sourceOrDish) {
+    if (sourceOrDish?.type === "custom_dish" && sourceOrDish.ingredientSource && !sourceOrDish.ingredientSourceSummary) {
+      return getDishIngredientSourceBadges(sourceOrDish.ingredientSource);
+    }
+    const products = Array.isArray(sourceOrDish?.products) ? sourceOrDish.products : null;
+    const summary = sourceOrDish?.ingredientSourceSummary || sourceOrDish?.sourceSummary || sourceOrDish?.summary || null;
+    const counts = products ? getIngredientSourceCounts(products) : {
+      database: Number(summary?.database || 0),
+      proxy: Number(summary?.proxy || 0),
+      missing: Number(summary?.missing || 0),
+      error: Number(summary?.error || 0),
+    };
+    const type = sourceOrDish?.dataSource?.type || sourceOrDish?.source?.type || sourceOrDish?.type || "";
+    if (!products && !summary) {
+      if (type === "custom_dish_food_database") counts.database = 1;
+      if (type === "custom_dish_food_database_proxy") counts.proxy = 1;
+      if (type === "custom_dish_missing") counts.missing = 1;
+      if (type === "custom_dish_lookup_error") counts.error = 1;
+      if (type === "custom_dish_mixed_food_database_ai_fallback") {
+        counts.proxy = 1;
+        counts.missing = 1;
+      }
+    }
+
+    const badges = [];
+    if (counts.database > 0) badges.push({ text: "Baza", className: "database" });
+    if (counts.proxy > 0) badges.push({ text: "Proxy", className: "proxy" });
+    if (counts.missing > 0) badges.push({ text: `Brak: ${counts.missing}`, className: "missing" });
+    if (counts.error > 0) badges.push({ text: "Błąd bazy", className: "error" });
+    if (!badges.length) badges.push({ text: "Źródło nieznane", className: "unknown" });
+    return badges;
+  }
+
+  function appendSourceBadgeGroup(parent, badges, className = "source-badge-group") {
+    const group = document.createElement("div");
+    group.className = className;
+    badges.forEach(({ text, className: badgeClass }) => {
+      const badge = document.createElement("span");
+      badge.className = `source-badge ${badgeClass}`;
+      badge.textContent = text;
+      group.append(badge);
+    });
+    parent.append(group);
+    return group;
+  }
+
   function getDishIngredientQualityText(source) {
     const type = source?.type || "";
     if (type === "custom_dish_food_database") return "Źródła składników: baza";
@@ -1064,7 +1122,12 @@
         const sourceInfo = getEntryDataSource(entry);
         const sourceBadges = document.createElement("div");
         sourceBadges.className = "source-badge-group";
-        if (sourceInfo.type === "mixed_food_database_ai_fallback") {
+        if (sourceInfo.type === "custom_dish") {
+          const sourceBadge = document.createElement("span");
+          sourceBadge.className = "source-badge custom-dish";
+          sourceBadge.textContent = sourceInfo.badgeText;
+          sourceBadges.append(sourceBadge);
+        } else if (sourceInfo.type === "mixed_food_database_ai_fallback") {
           [
             ["source-badge proxy", "Baza/proxy"],
             ["source-badge missing", "Brak: 1+"],
@@ -1128,6 +1191,15 @@
           source.className = "entry-source";
           source.textContent = sourceInfo.label;
           details.append(source);
+        }
+        if (sourceInfo.type === "custom_dish") {
+          const ingredientSources = document.createElement("section");
+          ingredientSources.className = "entry-products entry-ingredient-sources";
+          const ingredientSourcesTitle = document.createElement("h3");
+          ingredientSourcesTitle.textContent = "Źródła składników:";
+          ingredientSources.append(ingredientSourcesTitle);
+          appendSourceBadgeGroup(ingredientSources, getDishIngredientSourceBadges(sourceInfo), "source-badge-group ingredient-source-summary");
+          details.append(ingredientSources);
         }
         const products = Array.isArray(entry.products) ? entry.products : [];
         if (products.length) {
@@ -1395,6 +1467,14 @@
         deleteEntry.dataset.deleteMissingEntryId = row.latestEntryId;
         actions.append(deleteEntry);
       }
+      if (row.latestDishId) {
+        const deleteDish = document.createElement("button");
+        deleteDish.className = "button danger";
+        deleteDish.type = "button";
+        deleteDish.textContent = "Usuń danie";
+        deleteDish.dataset.deleteMissingDishId = row.latestDishId;
+        actions.append(deleteDish);
+      }
 
       item.append(header, meta, source, note, actions);
       elements.missingFoodsList.append(item);
@@ -1430,9 +1510,9 @@
       card.append(header, macro);
 
       const dishSource = getDishDataSourceInfo(dish);
-      const source = document.createElement("p");
+      const source = document.createElement("div");
       source.className = `dish-source ${dishSource.className}`;
-      source.textContent = dishSource.label;
+      appendSourceBadgeGroup(source, getDishIngredientSourceBadges(dish), "source-badge-group dish-source-badges");
       card.append(source);
 
       if (dish.tags?.length) {
@@ -2641,6 +2721,7 @@
     const ratio = portionG / dish.totalMassG;
     const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, Math.round((dish.totalData?.[key] || 0) * ratio)]));
     const rawText = `Porcja dania własnego: ${dish.name} | ${formatNumber(portionG)} g`;
+    const ingredientSourceSummary = getIngredientSourceCounts(Array.isArray(dish.products) ? dish.products : []);
     const entry = {
       id: createId(),
       date: elements.entryDate.value || localDateString(),
@@ -2655,6 +2736,7 @@
         dishId: dish.id,
         dataSourceType: "custom_dish",
         ingredientSource: dish.dataSource || dish.source || null,
+        ingredientSourceSummary,
       }],
       nutritionSource: {
         type: "custom_dish",
@@ -2662,6 +2744,7 @@
         dishId: dish.id,
         productName: dish.name,
         ingredientSource: dish.dataSource || dish.source || null,
+        ingredientSourceSummary,
       },
       dataSource: {
         type: "custom_dish",
@@ -2669,6 +2752,7 @@
         dishId: dish.id,
         productName: dish.name,
         ingredientSource: dish.dataSource || dish.source || null,
+        ingredientSourceSummary,
       },
     };
     try {
@@ -2732,6 +2816,32 @@
     } catch (error) {
       console.error(error);
       setMessage(elements.missingFoodsMessage, "Nie udało się usunąć wpisu z historii.", "error");
+    }
+  }
+
+  async function deleteMissingFoodDish(id) {
+    if (!id) {
+      setMessage(elements.missingFoodsMessage, "Nie znaleziono dania dla tego braku.", "error");
+      return;
+    }
+    if (!window.confirm("Usunąć całe danie? Tej akcji nie można cofnąć.")) {
+      return;
+    }
+
+    try {
+      const exists = customDishes.some((dish) => dish.id === id);
+      if (!exists) {
+        setMessage(elements.missingFoodsMessage, "Nie znaleziono dania dla tego braku.", "error");
+        await refreshEntries();
+        return;
+      }
+      await window.ketoDb.deleteCustomDish(id);
+      if (editingDishId === id) cancelEditEntry();
+      await refreshEntries();
+      setMessage(elements.missingFoodsMessage, "Danie usuniete. Brak z dania zniknal z listy.", "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.missingFoodsMessage, "Nie udalo sie usunac dania.", "error");
     }
   }
 
@@ -3051,8 +3161,10 @@
     elements.missingFoodsList.addEventListener("click", (event) => {
       const dismissButton = event.target.closest("[data-dismiss-missing-food]");
       const deleteEntryButton = event.target.closest("[data-delete-missing-entry-id]");
+      const deleteDishButton = event.target.closest("[data-delete-missing-dish-id]");
       if (dismissButton) dismissMissingFood(dismissButton.dataset.dismissMissingFood);
       if (deleteEntryButton) deleteMissingFoodEntry(deleteEntryButton.dataset.deleteMissingEntryId);
+      if (deleteDishButton) deleteMissingFoodDish(deleteDishButton.dataset.deleteMissingDishId);
     });
     elements.exportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
