@@ -2336,7 +2336,16 @@
     if (elements.syncNowButton) elements.syncNowButton.disabled = loading || !readSyncCode();
   }
 
-  function logCloudSyncDebug({ action, entriesCount = 0, dishesCount = 0, success, error = "", serverTime = "" }) {
+  function logCloudSyncDebug({
+    action,
+    entriesCount = 0,
+    dishesCount = 0,
+    success,
+    error = "",
+    errorCode = "",
+    detail = "",
+    serverTime = "",
+  }) {
     const payload = {
       action,
       entries_count: entriesCount,
@@ -2344,6 +2353,8 @@
       success: Boolean(success),
       server_time: serverTime || "-",
     };
+    if (errorCode) payload.error_code = errorCode;
+    if (detail) payload.detail = shortDebugMessage(detail, 160);
     if (error) payload.error = shortDebugMessage(error, 140);
     console.info("[Cyber Zdrowie Sync Debug]", payload);
   }
@@ -2402,9 +2413,23 @@
       throw new Error(`Cloud sync returned non-JSON response: HTTP ${response.status}`);
     }
     if (!response.ok || !payload?.ok) {
-      const message = payload?.error || `HTTP ${response.status}`;
-      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: message, serverTime: payload?.server_time });
-      throw new Error(message);
+      const errorCode = typeof payload?.error_code === "string" ? payload.error_code : "cloud_sync_error";
+      const detail = typeof payload?.detail === "string" ? payload.detail : "";
+      const message = detail || payload?.error || `HTTP ${response.status}`;
+      logCloudSyncDebug({
+        action,
+        entriesCount,
+        dishesCount,
+        success: false,
+        error: message,
+        errorCode,
+        detail,
+        serverTime: payload?.server_time,
+      });
+      const error = new Error(message);
+      error.code = errorCode;
+      error.detail = detail;
+      throw error;
     }
     logCloudSyncDebug({
       action,
@@ -2442,8 +2467,15 @@
       await requestCloudSync("setup");
       setSyncMessage("Połączono. Użyj „Synchronizuj teraz”, żeby wysłać i pobrać dane.", "success");
     } catch (error) {
-      console.error("[Cyber Zdrowie Sync Debug]", { action: "setup", success: false, error: error.message || error.name });
-      setSyncMessage(`Nie udało się połączyć: ${shortDebugMessage(error.message || error.name)}`, "error");
+      console.error("[Cyber Zdrowie Sync Debug]", {
+        action: "setup",
+        success: false,
+        error_code: error.code || "-",
+        detail: error.detail || "",
+        error: error.message || error.name,
+      });
+      const codeSuffix = error.code ? ` (${error.code})` : "";
+      setSyncMessage(`Nie udało się połączyć${codeSuffix}: ${shortDebugMessage(error.message || error.name)}`, "error");
     } finally {
       setCloudSyncLoading(false);
     }
@@ -2475,8 +2507,15 @@
         "success",
       );
     } catch (error) {
-      console.error("[Cyber Zdrowie Sync Debug]", { action: "sync", success: false, error: error.message || error.name });
-      setSyncMessage(`Synchronizacja nieudana: ${shortDebugMessage(error.message || error.name)}`, "error");
+      console.error("[Cyber Zdrowie Sync Debug]", {
+        action: "sync",
+        success: false,
+        error_code: error.code || "-",
+        detail: error.detail || "",
+        error: error.message || error.name,
+      });
+      const codeSuffix = error.code ? ` (${error.code})` : "";
+      setSyncMessage(`Synchronizacja nieudana${codeSuffix}: ${shortDebugMessage(error.message || error.name)}`, "error");
     } finally {
       setCloudSyncLoading(false);
     }
@@ -2495,6 +2534,8 @@
           entries_count: syncEntries.length,
           dishes_count: syncDishes.length,
           success: false,
+          error_code: error.code || "-",
+          detail: error.detail || "",
           error: error.message || error.name,
         });
         setSyncMessage("Lokalny zapis został zachowany. Push do chmury nieudany.", "error");
