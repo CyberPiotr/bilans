@@ -243,7 +243,7 @@
   let isAiParsing = false;
   let isDishAiParsing = false;
   let chatInputMode = "meal";
-  const composerDrafts = { meal: "", note: "", dish: "" };
+  const composerDrafts = { meal: "", dish: "" };
   const VIEW_LABELS = {
     start: "Home",
     history: "Historia",
@@ -259,7 +259,7 @@
   const chatMessages = [
     {
       role: "ai",
-      text: "Wybierz tryb: Posiłek policzy opis przez AI, Wpis jest miejscem na przyszły czat, a Danie zapisze przepis do Moich dań.",
+      text: "Wybierz tryb: Posiłek policzy opis przez AI, a Danie zapisze przepis do Moich dań.",
     },
   ];
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
@@ -822,12 +822,25 @@
     return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 }).format(value || 0);
   }
 
+  function formatWholeNumber(value) {
+    return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Math.round(value || 0));
+  }
+
   function formatDate(dateString) {
     const date = new Date(`${dateString}T12:00:00`);
     return new Intl.DateTimeFormat("pl-PL", {
       day: "2-digit",
       month: "long",
       year: "numeric",
+    }).format(date);
+  }
+
+  function formatChatTimestamp(date = new Date()) {
+    return new Intl.DateTimeFormat("pl-PL", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(date);
   }
 
@@ -896,7 +909,7 @@
       if (homeProgressDays === 1 && target.key === "kalorie") classes.push("hero");
       if (homeProgressDays === 3 && index === group.goals.length - 1) classes.push("wide");
       card.className = classes.join(" ");
-      card.style.setProperty("--gauge-fill", `${Math.min(360, percent * 3.6)}deg`);
+      card.style.setProperty("--gauge-fill", `${Math.min(240, percent * 2.4)}deg`);
       card.setAttribute("role", "progressbar");
       card.setAttribute("aria-label", LABELS[target.key]);
       card.setAttribute("aria-valuemin", "0");
@@ -905,10 +918,17 @@
 
       const ring = document.createElement("div");
       ring.className = "home-gauge-ring";
+      const readout = document.createElement("div");
+      readout.className = "home-gauge-readout";
       const amount = document.createElement("strong");
-      amount.className = "home-gauge-value";
-      amount.textContent = `${formatNumber(value)} ${target.unit}`;
-      ring.append(amount);
+      const displayValue = formatWholeNumber(value);
+      amount.className = `home-gauge-value digits-${displayValue.replace(/\D/g, "").length}`;
+      amount.textContent = displayValue;
+      const unit = document.createElement("span");
+      unit.className = "home-gauge-unit";
+      unit.textContent = target.unit;
+      readout.append(amount, unit);
+      ring.append(readout);
 
       const name = document.createElement("div");
       name.className = "home-gauge-label";
@@ -936,9 +956,18 @@
     if (!elements.chatMessages) return;
     elements.chatMessages.replaceChildren();
     chatMessages.forEach((message) => {
-      const bubble = document.createElement("p");
+      const bubble = document.createElement("article");
       bubble.className = `chat-bubble ${message.role === "user" ? "user" : "ai"}`;
-      bubble.textContent = message.text;
+      if (message.timestamp) {
+        const meta = document.createElement("time");
+        meta.className = "chat-bubble-time";
+        meta.dateTime = message.createdAt || new Date().toISOString();
+        meta.textContent = message.timestamp;
+        bubble.append(meta);
+      }
+      const body = document.createElement("p");
+      body.textContent = message.text;
+      bubble.append(body);
       elements.chatMessages.append(bubble);
     });
   }
@@ -973,15 +1002,15 @@
 
   function getTargetText(target) {
     if (target.type === "range") {
-      return `${formatNumber(target.min)}–${formatNumber(target.max)} ${target.unit}`;
+      return `${formatWholeNumber(target.min)}–${formatWholeNumber(target.max)} ${target.unit}`;
     }
     if (target.type === "max") {
-      return `maks. ${formatNumber(target.value)} ${target.unit}`;
+      return `maks. ${formatWholeNumber(target.value)} ${target.unit}`;
     }
     if (target.type === "minimum") {
-      return `min. ${formatNumber(target.value)} ${target.unit}`;
+      return `min. ${formatWholeNumber(target.value)} ${target.unit}`;
     }
-    return `${formatNumber(target.value)} ${target.unit}`;
+    return `${formatWholeNumber(target.value)} ${target.unit}`;
   }
 
   function getEatingWindowState(now = new Date()) {
@@ -1795,8 +1824,41 @@
   }
 
   function setMessage(element, text, type = "") {
+    if (element === elements.formMessage) {
+      element.textContent = "";
+      element.className = "message";
+      if (text) showToast(text, type || "info");
+      return;
+    }
     element.textContent = text;
     element.className = `message ${type}`.trim();
+  }
+
+  function showToast(text, type = "info") {
+    if (!elements.toastRegion || !text) return;
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type || "info"}`;
+    toast.setAttribute("role", type === "error" ? "alert" : "status");
+    toast.textContent = text;
+    elements.toastRegion.append(toast);
+    window.setTimeout(() => {
+      toast.classList.add("hiding");
+      window.setTimeout(() => toast.remove(), 220);
+    }, 5000);
+  }
+
+  function addChatUserMessage(text) {
+    const now = new Date();
+    chatMessages.push({
+      role: "user",
+      text,
+      timestamp: formatChatTimestamp(now),
+      createdAt: now.toISOString(),
+    });
+    renderChatMessages();
+    requestAnimationFrame(() => {
+      elements.chatMessages?.lastElementChild?.scrollIntoView({ block: "end" });
+    });
   }
 
   function switchView(viewName) {
@@ -1883,7 +1945,7 @@
   }
 
   function setChatInputMode(mode) {
-    if (!["meal", "note", "dish"].includes(mode)) return;
+    if (!["meal", "dish"].includes(mode)) return;
     syncComposerDraft();
     chatInputMode = mode;
     updateComposerMode();
@@ -1900,10 +1962,6 @@
       meal: {
         placeholder: "Opisz posiłek...",
         label: "Policz posiłek przez AI",
-      },
-      note: {
-        placeholder: "Napisz wpis lub pytanie...",
-        label: "Wyślij wpis",
       },
       dish: {
         placeholder: "Opisz danie do zapisania, np. gulasz: wołowina 600 g... Całość 1200 g",
@@ -2875,6 +2933,7 @@
     }
 
     setAiParsing(true);
+    if (currentView === "chat") addChatUserMessage(input);
     setMessage(elements.formMessage, "Liczenie posiłku…");
     try {
       const result = await requestAiParse(input);
@@ -2905,25 +2964,6 @@
     }
   }
 
-  function handleChatSubmit() {
-    const input = elements.rawInput.value.trim();
-    if (!input) {
-      setMessage(elements.formMessage, "Napisz wpis przed wysłaniem.", "error");
-      elements.rawInput.focus();
-      return;
-    }
-    chatMessages.push({ role: "user", text: input });
-    chatMessages.push({
-      role: "ai",
-      text: "Tryb Wpis jest przygotowany w UI. Backend rozmowy nie jest jeszcze podpięty, więc wpis nie został wysłany do API.",
-    });
-    composerDrafts.note = "";
-    elements.rawInput.value = "";
-    setMessage(elements.formMessage, "");
-    renderChatMessages();
-    resizeComposer();
-  }
-
   async function handleChatDishCreate() {
     if (isDishAiParsing) return;
     const input = elements.rawInput.value.trim();
@@ -2941,6 +2981,7 @@
     elements.aiParseButton.disabled = true;
     elements.clearButton.disabled = true;
     elements.aiParseButton.classList.add("loading");
+    if (currentView === "chat") addChatUserMessage(input);
     setMessage(elements.formMessage, "Tworzenie dania…");
     try {
       const result = await requestAiParse(input, "parse_dish");
@@ -2980,10 +3021,6 @@
 
   function handleComposerPrimaryAction() {
     const mode = getComposerMode();
-    if (mode === "note") {
-      handleChatSubmit();
-      return;
-    }
     if (mode === "dish") {
       handleChatDishCreate();
       return;
@@ -3766,6 +3803,7 @@
       storageStatus: document.querySelector("#storage-status"),
       summarySections: document.querySelector("#summary-sections"),
       themeColorMeta: document.querySelector("#theme-color-meta"),
+      toastRegion: document.querySelector("#toast-region"),
       toggleAlertsButton: document.querySelector("#toggle-alerts-button"),
       themeButtons: [...document.querySelectorAll("[data-theme-choice]")],
       worthNotes: document.querySelector("#worth-notes"),

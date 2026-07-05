@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-mobile-shell-v33";
+const CACHE_NAME = "vitatrack-mobile-shell-v34";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -26,6 +26,7 @@
       <span id="app-view-label" class="app-view-label">Home</span>
     </header>
     <p id="pwa-message" class="pwa-message" role="status" aria-live="polite" hidden></p>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
     <div id="menu-backdrop" class="menu-backdrop" hidden></div>
     <aside id="app-menu" class="app-menu" aria-label="Menu główne" aria-hidden="true">
@@ -272,7 +273,6 @@
       <div class="composer-input-area">
         <div id="chat-mode-switcher" class="chat-mode-switcher" role="tablist" aria-label="Tryb czatu">
           <button type="button" data-chat-mode="meal" class="active" aria-selected="true">Posiłek</button>
-          <button type="button" data-chat-mode="note" aria-selected="false">Wpis</button>
           <button type="button" data-chat-mode="dish" aria-selected="false">Danie</button>
         </div>
         <div class="composer">

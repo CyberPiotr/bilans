@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-mobile-shell-v33";
-  const APP_LAST_CHANGE = "fix Cyber Zdrowie chat input and mobile layout";
+  const APP_VERSION = "vitatrack-mobile-shell-v34";
+  const APP_LAST_CHANGE = "polish gauges and chat input UX";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({

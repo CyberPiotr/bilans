@@ -1484,3 +1484,215 @@ body:not([data-current-view="chat"]) .composer-input-area {
     font-size: .7rem;
   }
 }
+
+/* Stage 5 gauge and chat composer polish */
+.toast-region {
+  position: fixed;
+  z-index: 80;
+  top: calc(var(--app-bar-height) + env(safe-area-inset-top) + 8px);
+  right: max(12px, calc((100vw - 780px) / 2 + 12px));
+  left: max(12px, calc((100vw - 780px) / 2 + 12px));
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  width: min(100%, 360px);
+  padding: 11px 13px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--vt-radius-md);
+  background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+  color: var(--app-text);
+  box-shadow: var(--shadow-float);
+  font-size: .78rem;
+  font-weight: 850;
+  line-height: 1.35;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease;
+  backdrop-filter: var(--vt-blur);
+}
+
+.toast-success { border-color: color-mix(in srgb, var(--app-success) 38%, var(--app-border)); color: var(--app-success); }
+.toast-warning,
+.toast-info { border-color: color-mix(in srgb, var(--app-warning) 26%, var(--app-border)); }
+.toast-error { border-color: color-mix(in srgb, var(--app-danger) 42%, var(--app-border)); color: var(--app-danger); }
+.toast.hiding { opacity: 0; transform: translateY(-8px); }
+
+.home-gauge-card {
+  gap: 4px;
+}
+
+.home-gauge-ring {
+  position: relative;
+  overflow: visible;
+  width: clamp(76px, 22vw, 104px);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.home-gauge-card.hero .home-gauge-ring {
+  width: clamp(94px, 27vw, 126px);
+}
+
+.home-gauge-ring::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 240deg,
+      var(--gauge-color, var(--app-accent)) 0 var(--gauge-fill),
+      color-mix(in srgb, var(--app-border) 82%, transparent) var(--gauge-fill) 240deg,
+      transparent 240deg 360deg);
+  content: "";
+  -webkit-mask: radial-gradient(circle, transparent 0 56%, #000 57% 70%, transparent 71%);
+  mask: radial-gradient(circle, transparent 0 56%, #000 57% 70%, transparent 71%);
+}
+
+.home-gauge-readout {
+  position: absolute;
+  inset: 20% 6% 8%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.home-gauge-value {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: clamp(.88rem, 4.2vw, 1.12rem);
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.home-gauge-value.digits-5,
+.home-gauge-value.digits-6 {
+  font-size: clamp(.72rem, 3.55vw, .94rem);
+}
+
+.home-gauge-card.hero .home-gauge-value {
+  font-size: clamp(1.02rem, 5vw, 1.36rem);
+}
+
+.home-gauge-card.hero .home-gauge-value.digits-5,
+.home-gauge-card.hero .home-gauge-value.digits-6 {
+  font-size: clamp(.88rem, 4.2vw, 1.14rem);
+}
+
+.home-gauge-unit {
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-size: clamp(.58rem, 2.5vw, .72rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.home-gauge-label {
+  margin-top: 2px;
+  font-size: .72rem;
+  line-height: 1.08;
+}
+
+.home-gauge-target {
+  font-size: .61rem;
+  line-height: 1.08;
+}
+
+.home-gauge-status {
+  min-height: 19px;
+  padding: 2px 7px;
+  font-size: .56rem;
+  line-height: 1.2;
+}
+
+body[data-current-view="chat"] {
+  --chat-mode-height: 40px;
+}
+
+body[data-current-view="chat"] .app-content {
+  padding-bottom: calc(var(--composer-space) + 2px);
+}
+
+body[data-current-view="chat"] .chat-panel {
+  min-height: calc(100dvh - var(--app-bar-height) - var(--composer-space) - env(safe-area-inset-top) - 4px);
+}
+
+body[data-current-view="chat"] .composer-input-area {
+  padding: 0 10px 0;
+}
+
+.chat-mode-switcher {
+  order: 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: var(--chat-mode-height);
+  margin-top: 6px;
+  border-radius: 999px;
+}
+
+.chat-mode-switcher button {
+  min-height: 30px;
+  font-size: .72rem;
+}
+
+body[data-current-view="chat"] .composer {
+  order: 1;
+  display: block;
+  width: 100%;
+  min-height: clamp(128px, 24dvh, 190px);
+  border-radius: 24px;
+}
+
+body[data-current-view="chat"] .composer textarea {
+  min-height: clamp(118px, 22dvh, 176px);
+  max-height: clamp(118px, 22dvh, 176px);
+  padding: 14px 58px 48px 14px;
+  font-size: .93rem;
+  line-height: 1.4;
+}
+
+body[data-current-view="chat"] .composer-ai {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+body[data-current-view="chat"] .composer-clear {
+  right: 60px;
+  bottom: 17px;
+}
+
+body[data-current-view="chat"] .composer-feedback {
+  display: none;
+}
+
+.chat-bubble {
+  display: grid;
+  gap: 4px;
+}
+
+.chat-bubble p {
+  margin: 0;
+}
+
+.chat-bubble-time {
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  font-size: .62rem;
+  font-weight: 850;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    transition-duration: 0s;
+  }
+}
