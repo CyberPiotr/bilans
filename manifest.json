@@ -1,14 +1,14 @@
 {
-  "name": "Bilans",
-  "short_name": "Bilans",
-  "description": "Lokalna aplikacja do kontroli keto-odżywiania.",
+  "name": "Cyber Zdrowie",
+  "short_name": "Cyber Zdrowie",
+  "description": "Lokalna aplikacja do kontroli żywienia.",
   "lang": "pl",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f1f5f2",
-  "theme_color": "#f1f5f2",
+  "background_color": "#f7f2ea",
+  "theme_color": "#f7f2ea",
   "icons": [
     {
       "src": "icons/icon-192.png",

@@ -4,21 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta id="theme-color-meta" name="theme-color" content="#f1f5f2">
-    <meta name="description" content="Bilans żywienia działający lokalnie i offline.">
+    <meta name="description" content="Cyber Zdrowie działa lokalnie i offline jako dziennik żywienia.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="style.css">
-    <title>Bilans</title>
+    <title>Cyber Zdrowie</title>
   </head>
   <body>
+    <div id="app-splash" class="app-splash" aria-hidden="true">
+      <div class="app-splash-mark">
+        <img src="icons/cyber-zdrowie-logo.png" alt="">
+        <strong>Cyber Zdrowie</strong>
+      </div>
+    </div>
     <header class="app-bar">
       <button id="menu-button" class="icon-button" type="button" aria-label="Otwórz menu" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
       <button class="brand-button" type="button" data-view-target="start" aria-label="Przejdź do Startu">
-        <img class="brand-logo" src="icons/icon-192.png" alt="">
-        <span>VitaTrack</span>
+        <img class="brand-logo" src="icons/cyber-zdrowie-logo.png" alt="">
+        <span>Cyber Zdrowie</span>
       </button>
       <div class="app-bar-actions">
         <button id="top-add-button" class="top-action-button top-add-button" type="button" aria-label="Dodaj wpis" title="Dodaj wpis">+</button>
@@ -38,7 +44,7 @@
       <div class="menu-header">
         <div>
           <span class="eyebrow">Lokalnie i offline</span>
-          <strong>Bilans</strong>
+          <strong>Cyber Zdrowie</strong>
         </div>
         <button id="close-menu-button" class="icon-button close-button" type="button" aria-label="Zamknij menu">×</button>
       </div>
@@ -100,7 +106,7 @@
 
     <main class="app-content">
       <section class="app-view active" data-view="start" aria-labelledby="start-title">
-        <h1 id="start-title" class="sr-only">VitaTrack</h1>
+        <h1 id="start-title" class="sr-only">Cyber Zdrowie</h1>
         <section class="home-progress-card" aria-label="Szybki podgląd realizacji celów">
           <div id="home-progress-list" class="home-progress-list"></div>
         </section>
@@ -234,7 +240,7 @@
           </div>
         </section>
         <section class="surface-card about-card">
-          <h2>Bilans</h2>
+          <h2>Cyber Zdrowie</h2>
           <p class="muted">Dane pozostają na tym urządzeniu. Opis wysłany przez akcję AI trafia do Supabase Edge Function i OpenAI wyłącznie w celu policzenia posiłku.</p>
           <button id="appearance-install-button" class="button secondary" type="button" hidden>Dodaj do telefonu</button>
         </section>

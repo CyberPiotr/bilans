@@ -1089,7 +1089,7 @@
     if (dataDays === 0) {
       elements.eatingWindowMessage.textContent = "Po kilku wpisach zobaczysz tutaj, co warto uzupełnić.";
       renderWorthEmptyState(
-        "Dodaj pierwszy wpis, a VitaTrack zacznie uczyć się Twojego rytmu odżywiania.",
+        "Dodaj pierwszy wpis, a Cyber Zdrowie zacznie uczyć się Twojego rytmu odżywiania.",
         "Po kilku wpisach zobaczysz tutaj, co warto uzupełnić.",
       );
       elements.toggleAlertsButton.hidden = true;
