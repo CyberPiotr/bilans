@@ -2092,6 +2092,46 @@
     }));
   }
 
+  function mergeAiFallbackWithLookupNutrients(aiParsedData, lookupParsedData) {
+    const keysFromFoodLookup = [];
+    const keysFromAiFallback = [];
+    const keysMissingInBoth = [];
+    const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => {
+      const lookupValue = Number(lookupParsedData?.[key]);
+      if (lookupParsedData?.[key] !== null && lookupParsedData?.[key] !== undefined && Number.isFinite(lookupValue) && lookupValue >= 0) {
+        keysFromFoodLookup.push(key);
+        return [key, lookupValue];
+      }
+
+      const aiValue = Number(aiParsedData?.[key]);
+      if (aiParsedData?.[key] !== null && aiParsedData?.[key] !== undefined && Number.isFinite(aiValue) && aiValue >= 0) {
+        keysFromAiFallback.push(key);
+        return [key, aiValue];
+      }
+
+      keysMissingInBoth.push(key);
+      return [key, 0];
+    }));
+
+    return {
+      parsedData,
+      keysFromFoodLookup,
+      keysFromAiFallback,
+      keysMissingInBoth,
+    };
+  }
+
+  function logHybridNutrientMergeDebug({ aiParsedData, lookupParsedData, merge }) {
+    console.log("[VitaTrack Hybrid Nutrient Merge Debug]", {
+      raw_ai_parsedData: aiParsedData || null,
+      nutrients_summed_from_food_lookup: lookupParsedData || null,
+      final_merged_parsedData: merge?.parsedData || null,
+      keys_taken_from_food_lookup: merge?.keysFromFoodLookup || [],
+      keys_kept_from_ai_fallback: merge?.keysFromAiFallback || [],
+      keys_missing_in_both: merge?.keysMissingInBoth || [],
+    });
+  }
+
   function isProxyLookupResult(result) {
     return Boolean(result?.payload?.product?.is_proxy === true
       || result?.payload?.match?.match_type === "proxy"
@@ -2231,9 +2271,20 @@
       const requiresConfirmation = results.some(({ result }) => result.payload?.match?.requires_confirmation === true);
       const usesProxy = results.some(({ result }) => isProxyLookupResult(result));
       const firstMatched = results[0]?.result.payload;
+      const nutrientMerge = mergeAiFallbackWithLookupNutrients(fallbackParsedData, databaseParsedData);
+      logHybridNutrientMergeDebug({
+        aiParsedData: fallbackParsedData,
+        lookupParsedData: databaseParsedData,
+        merge: nutrientMerge,
+      });
+      const nutrientMergeMetadata = {
+        foodLookupKeys: nutrientMerge.keysFromFoodLookup,
+        aiFallbackKeys: nutrientMerge.keysFromAiFallback,
+        missingKeys: nutrientMerge.keysMissingInBoth,
+      };
       updateAiDebug({ foodLookupStatus: "matched" });
       return {
-        parsedData: databaseParsedData,
+        parsedData: nutrientMerge.parsedData,
         status: "matched",
         products: results.map(({ product, result }) => createProductLookupMetadata(product, result)),
         source: usesProxy || requiresConfirmation
@@ -2245,6 +2296,7 @@
             fdcId: firstMatched?.product?.fdc_id ?? null,
             productName: firstMatched?.product?.product_name || null,
             originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+            nutrientMerge: nutrientMergeMetadata,
           }
           : {
             type: "food_database",
@@ -2254,6 +2306,7 @@
             fdcId: firstMatched?.product?.fdc_id ?? null,
             productName: firstMatched?.product?.product_name || null,
             originalText: products.map((product) => `${product.name} ${product.amountG} g`).join("; "),
+            nutrientMerge: nutrientMergeMetadata,
           },
       };
     }
