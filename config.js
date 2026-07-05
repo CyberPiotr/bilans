@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-mobile-shell-v34";
-  const APP_LAST_CHANGE = "polish gauges and chat input UX";
+  const APP_VERSION = "vitatrack-mobile-shell-v35";
+  const APP_LAST_CHANGE = "fix PWA bottom safe area and splash behavior";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({

@@ -3,13 +3,19 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta id="theme-color-meta" name="theme-color" content="#f1f5f2">
+    <meta id="theme-color-meta" name="theme-color" content="#f7f2ea">
     <meta name="description" content="Cyber Zdrowie działa lokalnie i offline jako dziennik żywienia.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="style.css">
     <title>Cyber Zdrowie</title>
+    <script>
+      (() => {
+        const standalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+        if (standalone) document.documentElement.classList.add("pwa-standalone");
+      })();
+    </script>
   </head>
   <body>
     <div id="app-splash" class="app-splash" aria-hidden="true">

@@ -1696,3 +1696,44 @@ body[data-current-view="chat"] .composer-feedback {
     transition-duration: 0s;
   }
 }
+
+/* Stage 6 PWA bottom safe-area and splash cleanup */
+html {
+  min-height: 100%;
+  min-height: 100svh;
+  min-height: 100dvh;
+  background: var(--app-bg);
+}
+
+body {
+  min-height: 100%;
+  min-height: 100svh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--app-bg);
+}
+
+.pwa-standalone .app-splash {
+  display: none !important;
+}
+
+.composer-shell {
+  bottom: 0;
+  padding-bottom: 0;
+  background: color-mix(in srgb, var(--app-surface) 94%, var(--app-bg));
+}
+
+.bottom-nav {
+  min-height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--app-surface) 94%, var(--app-bg));
+}
+
+.home-period-switcher {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+.app-menu,
+.menu-backdrop {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
