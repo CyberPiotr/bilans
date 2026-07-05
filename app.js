@@ -1249,7 +1249,7 @@
     const resolvedTheme = settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
     document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.style.colorScheme = resolvedTheme;
-    elements.themeColorMeta.content = resolvedTheme === "dark" ? "#08111f" : "#f7f2ea";
+    elements.themeColorMeta.content = resolvedTheme === "dark" ? "#08111f" : "#f8faf7";
     if (elements.themeButtons) updateThemeButtons();
   }
 

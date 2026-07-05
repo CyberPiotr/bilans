@@ -1,9 +1,9 @@
 :root {
   color-scheme: light;
-  --app-bg: #f7f2ea;
-  --app-surface: #fffcf6;
-  --app-surface-soft: #efe7da;
-  --app-input: #fffaf2;
+  --app-bg: #f8faf7;
+  --app-surface: #fffef9;
+  --app-surface-soft: #eef4ed;
+  --app-input: #fffef9;
   --app-text: #152018;
   --app-muted: #667064;
   --app-accent: #138a55;
@@ -23,8 +23,8 @@
   --app-tag-bg: #e2f5e9;
   --app-overlay: rgb(8 17 31 / 48%);
   --cyber-orange: #ff6a00;
-  --brand-bg: #f7f2ea;
-  --brand-surface: #fffcf6;
+  --brand-bg: #f8faf7;
+  --brand-surface: #fffef9;
   --brand-primary: #138a55;
   --brand-logo-size: 34px;
   --brand-splash-duration: 1000ms;
@@ -42,9 +42,9 @@
   --vt-space-5: 24px;
   --vt-space-6: 32px;
   --vt-space-7: 48px;
-  --vt-bg-soft: #fbf7ef;
-  --vt-surface-solid: #fffcf6;
-  --vt-surface-muted: #efe7da;
+  --vt-bg-soft: #fbfcf8;
+  --vt-surface-solid: #fffef9;
+  --vt-surface-muted: #eef4ed;
   --vt-text-muted: #667064;
   --vt-text-soft: #8a9288;
   --vt-primary-strong: #0b6f43;
@@ -1736,4 +1736,92 @@ body {
 .app-menu,
 .menu-backdrop {
   bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+}
+
+/* Stage 7 PWA icon, safe-area, light mode, segment, and menu polish */
+:root {
+  --bottom-safe-area: env(safe-area-inset-bottom);
+  --segment-height: 40px;
+}
+
+html,
+body {
+  min-height: 100dvh;
+  background: var(--app-bg);
+}
+
+.composer-shell {
+  z-index: 60;
+  right: 0;
+  left: 0;
+  width: 100%;
+  background: var(--app-surface);
+}
+
+.bottom-nav {
+  z-index: 62;
+  width: 100%;
+  background: var(--app-surface);
+}
+
+.home-period-switcher,
+.chat-mode-switcher {
+  display: grid;
+  gap: 8px;
+  height: var(--segment-height);
+  padding: 4px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--app-border) 76%, transparent);
+  background: color-mix(in srgb, var(--app-bg) 96%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.home-period-switcher button,
+.chat-mode-switcher button {
+  min-height: 30px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: .68rem;
+  font-weight: 850;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.home-period-switcher button.active,
+.chat-mode-switcher button.active {
+  border-color: color-mix(in srgb, var(--app-accent) 42%, var(--app-border));
+  background: var(--app-surface-soft);
+  color: var(--app-accent-strong);
+}
+
+.home-period-switcher button:active,
+.chat-mode-switcher button:active {
+  transform: scale(.98);
+}
+
+.chat-mode-switcher {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 6px;
+}
+
+.app-menu {
+  z-index: 45;
+  bottom: calc(var(--bottom-nav-height) + var(--bottom-safe-area));
+  transform: translateY(112%);
+  transition: transform 480ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.menu-backdrop {
+  z-index: 44;
+  bottom: calc(var(--bottom-nav-height) + var(--bottom-safe-area));
+}
+
+.app-menu.open {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-menu {
+    transition-duration: 0s;
+  }
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-mobile-shell-v35";
+const CACHE_NAME = "vitatrack-mobile-shell-v36";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,6 +11,8 @@ const APP_SHELL = [
   "./icons/cyber-zdrowie-logo.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/icon-maskable-512.png",
   "./zmiany/ikony/historia.svg",
   "./zmiany/ikony/menu.svg",
   "./zmiany/ikony/home.svg",
