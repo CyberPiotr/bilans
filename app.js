@@ -691,6 +691,13 @@
     };
   }
 
+  function getLookupNutrientPayloadEntry(payload, key) {
+    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
+    const aliases = [key, ...(NUTRIENT_ALIASES[key] || [])];
+    const nutrientKey = [...new Set(aliases)].find((alias) => nutrients[alias] && typeof nutrients[alias] === "object");
+    return nutrientKey ? nutrients[nutrientKey] : null;
+  }
+
   function logFoodLookupDebug({ rawInput, product, query, result = null, metadata = null, error = null }) {
     const payload = result?.payload || null;
     console.log("[VitaTrack Lookup Debug]", {
@@ -814,11 +821,49 @@
     return periodEntries.reduce((sum, entry) => sum + Number(entry.parsedData?.[key] || 0), 0);
   }
 
+  function getDashboardRangeLabel(days) {
+    if (days === 1) return "today";
+    if (days === 3) return "3d";
+    if (days === 7) return "7d";
+    return `${days}d`;
+  }
+
+  function getDashboardNutrientEntryDebug(periodEntries, key) {
+    return periodEntries.map((entry) => {
+      const rawValue = entry.parsedData?.[key];
+      const value = Number(rawValue);
+      const hasValue = rawValue !== null && rawValue !== undefined && Number.isFinite(value);
+      return {
+        entry_id: entry.id || null,
+        date: entry.date,
+        value: hasValue ? value : null,
+        status: hasValue ? "value_for_amount_in_entry" : "missing_in_entry",
+      };
+    });
+  }
+
+  function logDashboardNutrientDebug(days, periodEntries) {
+    const sums = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, sumNutrient(periodEntries, key)]));
+    console.log("[VitaTrack Dashboard Nutrient Debug]", {
+      range: getDashboardRangeLabel(days),
+      entry_count: periodEntries.length,
+      entry_dates: periodEntries.map((entry) => entry.date),
+      sums,
+      focus: {
+        sodium: { key: "sod", sum: sums.sod, entries: getDashboardNutrientEntryDebug(periodEntries, "sod") },
+        potassium: { key: "potas", sum: sums.potas, entries: getDashboardNutrientEntryDebug(periodEntries, "potas") },
+        magnesium: { key: "magnez", sum: sums.magnez, entries: getDashboardNutrientEntryDebug(periodEntries, "magnez") },
+        fiber: { key: "blonnik", sum: sums.blonnik, entries: getDashboardNutrientEntryDebug(periodEntries, "blonnik") },
+      },
+    });
+  }
+
   function renderHomeProgress() {
     const homeLabels = { wegle_netto: "Węgle", omega3_epa_dha: "Omega-3" };
     const group = getGoalGroups().find(({ days }) => days === homeProgressDays);
     if (!group) return;
     const periodEntries = getEntriesForDays(homeProgressDays);
+    logDashboardNutrientDebug(homeProgressDays, periodEntries);
     elements.homeProgressList.replaceChildren();
     group.goals.forEach((target) => {
       const value = sumNutrient(periodEntries, target.key);
@@ -2020,11 +2065,10 @@
   }
 
   function normalizeLookupNutrients(payload) {
-    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
     const factor = Number(payload?.amount?.factor);
     if (!Number.isFinite(factor) || factor < 0) return null;
     return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
-      const nutrient = nutrients[key];
+      const nutrient = getLookupNutrientPayloadEntry(payload, key);
       if (!nutrient || typeof nutrient !== "object" || nutrient.value_per_100g === null || nutrient.value_per_100g === undefined) {
         return [key, null];
       }
