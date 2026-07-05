@@ -1,4 +1,4 @@
-const CACHE_NAME = "vitatrack-mobile-shell-v30";
+const CACHE_NAME = "vitatrack-mobile-shell-v31";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,6 +11,12 @@ const APP_SHELL = [
   "./icons/cyber-zdrowie-logo.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./zmiany/ikony/historia.svg",
+  "./zmiany/ikony/menu.svg",
+  "./zmiany/ikony/home.svg",
+  "./zmiany/ikony/dania.svg",
+  "./zmiany/ikony/chat.svg",
+  "./zmiany/ikony/wyslij.svg",
 ];
 const NETWORK_FIRST_FILES = new Set(["index.html", "app.js", "config.js", "service-worker.js"]);
 

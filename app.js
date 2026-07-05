@@ -242,6 +242,13 @@
   let homeProgressDays = 1;
   let isAiParsing = false;
   let isDishAiParsing = false;
+  const composerDrafts = { meal: "", chat: "" };
+  const chatMessages = [
+    {
+      role: "ai",
+      text: "Czat jest przygotowany jako widok UI. Backend rozmowy nie jest podpięty w tym etapie.",
+    },
+  ];
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
   const HIDDEN_MISSING_FOODS_KEY = "vitatrack_hidden_missing_foods_v1";
   const REMOVED_MISSING_FOODS_KEY = "vitatrack_removed_missing_foods_v1";
@@ -865,37 +872,61 @@
     const periodEntries = getEntriesForDays(homeProgressDays);
     logDashboardNutrientDebug(homeProgressDays, periodEntries);
     elements.homeProgressList.replaceChildren();
-    group.goals.forEach((target) => {
+    elements.homeProgressList.className = `home-progress-list days-${homeProgressDays}`;
+    group.goals.forEach((target, index) => {
       const value = sumNutrient(periodEntries, target.key);
       const primaryTarget = target.type === "range" ? target.min : target.value;
-      const exceeded = getStatus(value, target).className === "exceeded";
-      const percent = primaryTarget > 0 ? Math.min(100, (value / primaryTarget) * 100) : 0;
-      const row = document.createElement("div");
-      row.className = `home-progress-row${exceeded ? " exceeded" : ""}`;
-      const top = document.createElement("div");
-      top.className = "home-progress-top";
-      const name = document.createElement("strong");
+      const status = getStatus(value, target);
+      const percent = primaryTarget > 0 ? Math.max(0, (value / primaryTarget) * 100) : 0;
+      const card = document.createElement("div");
+      const classes = ["home-gauge-card", status.className];
+      if (homeProgressDays === 1 && target.key === "kalorie") classes.push("hero");
+      if (homeProgressDays === 3 && index === group.goals.length - 1) classes.push("wide");
+      card.className = classes.join(" ");
+      card.style.setProperty("--gauge-fill", `${Math.min(360, percent * 3.6)}deg`);
+      card.setAttribute("role", "progressbar");
+      card.setAttribute("aria-label", LABELS[target.key]);
+      card.setAttribute("aria-valuemin", "0");
+      card.setAttribute("aria-valuemax", String(primaryTarget));
+      card.setAttribute("aria-valuenow", String(value));
+
+      const ring = document.createElement("div");
+      ring.className = "home-gauge-ring";
+      const amount = document.createElement("strong");
+      amount.className = "home-gauge-value";
+      amount.textContent = `${formatNumber(value)} ${target.unit}`;
+      ring.append(amount);
+
+      const name = document.createElement("div");
+      name.className = "home-gauge-label";
       name.textContent = homeLabels[target.key] || LABELS[target.key];
-      const amount = document.createElement("span");
-      amount.textContent = `${formatNumber(value)} ${target.unit} / ${getTargetText(target)}`;
-      top.append(name, amount);
-      const track = document.createElement("div");
-      track.className = "home-progress-track";
-      track.setAttribute("role", "progressbar");
-      track.setAttribute("aria-label", LABELS[target.key]);
-      track.setAttribute("aria-valuemin", "0");
-      track.setAttribute("aria-valuemax", String(primaryTarget));
-      track.setAttribute("aria-valuenow", String(value));
-      const fill = document.createElement("span");
-      fill.style.width = `${percent}%`;
-      track.append(fill);
-      row.append(top, track);
-      elements.homeProgressList.append(row);
+
+      const targetText = document.createElement("div");
+      targetText.className = "home-gauge-target";
+      targetText.textContent = getTargetText(target);
+
+      const statusText = document.createElement("div");
+      statusText.className = "home-gauge-status";
+      statusText.textContent = status.label;
+
+      card.append(ring, name, targetText, statusText);
+      elements.homeProgressList.append(card);
     });
     elements.homePeriodButtons.forEach((button) => {
       const active = Number(button.dataset.homeDays) === homeProgressDays;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function renderChatMessages() {
+    if (!elements.chatMessages) return;
+    elements.chatMessages.replaceChildren();
+    chatMessages.forEach((message) => {
+      const bubble = document.createElement("p");
+      bubble.className = `chat-bubble ${message.role === "user" ? "user" : "ai"}`;
+      bubble.textContent = message.text;
+      elements.chatMessages.append(bubble);
     });
   }
 
@@ -1747,6 +1778,7 @@
     renderEntries();
     renderMissingFoods();
     renderCustomDishes();
+    renderChatMessages();
   }
 
   function setMessage(element, text, type = "") {
@@ -1757,6 +1789,7 @@
   function switchView(viewName) {
     const target = document.querySelector(`[data-view="${viewName}"]`);
     if (!target) return;
+    syncComposerDraft();
     currentView = viewName;
     document.body.dataset.currentView = viewName;
     document.querySelectorAll(".app-view").forEach((view) => view.classList.toggle("active", view === target));
@@ -1764,6 +1797,7 @@
       button.classList.toggle("active", button.dataset.viewTarget === viewName);
     });
     closeMenu();
+    updateComposerMode();
     requestAnimationFrame(resizeComposer);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1772,7 +1806,7 @@
     elements.appMenu.classList.add("open");
     elements.appMenu.setAttribute("aria-hidden", "false");
     elements.menuBackdrop.hidden = false;
-    elements.menuButton.setAttribute("aria-expanded", "true");
+    elements.bottomMenuButton.setAttribute("aria-expanded", "true");
     document.body.classList.add("menu-open");
   }
 
@@ -1780,7 +1814,7 @@
     elements.appMenu.classList.remove("open");
     elements.appMenu.setAttribute("aria-hidden", "true");
     elements.menuBackdrop.hidden = true;
-    elements.menuButton.setAttribute("aria-expanded", "false");
+    elements.bottomMenuButton.setAttribute("aria-expanded", "false");
     document.body.classList.remove("menu-open");
   }
 
@@ -1798,6 +1832,33 @@
     requestAnimationFrame(() => {
       document.documentElement.style.setProperty("--composer-space", `${elements.composerShell.offsetHeight + 24}px`);
     });
+  }
+
+  function getComposerMode() {
+    return currentView === "chat" ? "chat" : "meal";
+  }
+
+  function syncComposerDraft() {
+    if (!elements.rawInput) return;
+    composerDrafts[getComposerMode()] = elements.rawInput.value;
+  }
+
+  function updateComposerMode() {
+    if (!elements.rawInput || !elements.aiParseButton) return;
+    const mode = getComposerMode();
+    elements.rawInput.value = composerDrafts[mode] || "";
+    if (mode === "chat") {
+      elements.rawInput.placeholder = "Napisz wiadomość...";
+      elements.aiParseButton.setAttribute("aria-label", "Wyślij wiadomość");
+      elements.aiParseButton.title = "Wyślij wiadomość";
+      elements.saveButton.hidden = true;
+      setMessage(elements.formMessage, "");
+    } else {
+      elements.rawInput.placeholder = "Opisz posiłek...";
+      elements.aiParseButton.setAttribute("aria-label", "Policz posiłek przez AI");
+      elements.aiParseButton.title = "Policz posiłek przez AI";
+    }
+    resizeComposer();
   }
 
   function resizeDishComposer() {
@@ -2779,6 +2840,33 @@
     }
   }
 
+  function handleChatSubmit() {
+    const input = elements.rawInput.value.trim();
+    if (!input) {
+      setMessage(elements.formMessage, "Napisz wiadomość przed wysłaniem.", "error");
+      elements.rawInput.focus();
+      return;
+    }
+    chatMessages.push({ role: "user", text: input });
+    chatMessages.push({
+      role: "ai",
+      text: "To jest widok testowy czatu. Backend rozmowy nie jest jeszcze podpięty, więc wiadomość nie została wysłana do API.",
+    });
+    composerDrafts.chat = "";
+    elements.rawInput.value = "";
+    setMessage(elements.formMessage, "");
+    renderChatMessages();
+    resizeComposer();
+  }
+
+  function handleComposerPrimaryAction() {
+    if (getComposerMode() === "chat") {
+      handleChatSubmit();
+      return;
+    }
+    handleAiParse();
+  }
+
   async function handleDishAiCreate() {
     if (isDishAiParsing) return;
     const input = elements.dishAiInput.value.trim();
@@ -2894,7 +2982,9 @@
     editingEntryId = id;
     elements.entryDate.value = entry.date;
     updateDatePickerLabel();
+    switchView("start");
     elements.rawInput.value = entry.rawText;
+    composerDrafts.meal = entry.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz zmiany");
     elements.saveButton.hidden = false;
@@ -2902,7 +2992,6 @@
     elements.editModeMessage.hidden = false;
     elements.editModeMessage.textContent = `Edytujesz wpis z dnia: ${entry.date}`;
     setMessage(elements.formMessage, "");
-    switchView("start");
     resizeComposer();
     elements.rawInput.focus();
   }
@@ -2911,7 +3000,9 @@
     const dish = customDishes.find((item) => item.id === id);
     if (!dish) return;
     editingDishId = id;
+    switchView("start");
     elements.rawInput.value = dish.rawText;
+    composerDrafts.meal = dish.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz danie");
     elements.saveButton.hidden = false;
@@ -2919,7 +3010,6 @@
     elements.editModeMessage.hidden = false;
     elements.editModeMessage.textContent = `Edytujesz danie: ${dish.name}`;
     setMessage(elements.formMessage, "");
-    switchView("start");
     resizeComposer();
     elements.rawInput.focus();
   }
@@ -2930,6 +3020,7 @@
     elements.entryDate.value = localDateString();
     updateDatePickerLabel();
     elements.rawInput.value = "";
+    composerDrafts.meal = "";
     elements.saveButton.textContent = "Gem";
     elements.saveButton.setAttribute("aria-label", "Zapisz format Gema");
     elements.saveButton.title = "Zapisz format Gema";
@@ -3316,9 +3407,12 @@
   }
 
   function bindEvents() {
-    elements.aiParseButton.addEventListener("click", handleAiParse);
+    elements.aiParseButton.addEventListener("click", handleComposerPrimaryAction);
     elements.saveButton.addEventListener("click", handleSave);
-    elements.rawInput.addEventListener("input", resizeComposer);
+    elements.rawInput.addEventListener("input", () => {
+      syncComposerDraft();
+      resizeComposer();
+    });
     elements.dishAiCreateButton.addEventListener("click", handleDishAiCreate);
     elements.dishAiInput.addEventListener("input", resizeDishComposer);
     elements.dishAiClearButton.addEventListener("click", () => {
@@ -3327,7 +3421,6 @@
       resizeDishComposer();
       elements.dishAiInput.focus();
     });
-    elements.topAddButton.addEventListener("click", focusComposer);
     elements.datePickerButton.addEventListener("click", openDatePicker);
     elements.entryDate.addEventListener("change", updateDatePickerLabel);
     elements.homePeriodButtons.forEach((button) => {
@@ -3338,6 +3431,7 @@
     });
     elements.clearButton.addEventListener("click", () => {
       elements.rawInput.value = "";
+      composerDrafts[getComposerMode()] = "";
       setMessage(elements.formMessage, "");
       resizeComposer();
       elements.rawInput.focus();
@@ -3347,9 +3441,7 @@
       alertsExpanded = !alertsExpanded;
       renderAlerts();
     });
-    elements.menuButton.addEventListener("click", openMenu);
     elements.bottomMenuButton.addEventListener("click", openMenu);
-    elements.bottomAddButton.addEventListener("click", focusComposer);
     elements.closeMenuButton.addEventListener("click", closeMenu);
     elements.menuBackdrop.addEventListener("click", closeMenu);
     elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
@@ -3388,6 +3480,7 @@
       if (deleteEntryButton) deleteMissingFoodEntry(deleteEntryButton.dataset.deleteHistoryEntryFromMissing);
     });
     elements.exportButton.addEventListener("click", handleExport);
+    elements.menuExportButton.addEventListener("click", handleExport);
     elements.exportMissingFoodsButton.addEventListener("click", handleExportMissingFoods);
     elements.missingFoodsExportButton.addEventListener("click", handleExportMissingFoods);
     elements.clearHiddenMissingFoodsButton.addEventListener("click", clearHiddenMissingFoods);
@@ -3443,7 +3536,6 @@
       appearanceInstallButton: document.querySelector("#appearance-install-button"),
       backupMessage: document.querySelector("#backup-message"),
       alertsList: document.querySelector("#alerts-list"),
-      bottomAddButton: document.querySelector("#bottom-add-button"),
       bottomMenuButton: document.querySelector("#bottom-menu-button"),
       cancelEditButton: document.querySelector("#cancel-edit-button"),
       clearHiddenMissingFoodsButton: document.querySelector("#clear-hidden-missing-foods-button"),
@@ -3451,6 +3543,7 @@
       closeMenuButton: document.querySelector("#close-menu-button"),
       composerShell: document.querySelector(".composer-shell"),
       datePickerButton: document.querySelector("#date-picker-button"),
+      chatMessages: document.querySelector("#chat-messages"),
       debugAiDuration: document.querySelector("#debug-ai-duration"),
       debugAiErrorMessage: document.querySelector("#debug-ai-error-message"),
       debugAiErrorType: document.querySelector("#debug-ai-error-type"),
@@ -3497,7 +3590,7 @@
       importInput: document.querySelector("#import-input"),
       installButton: document.querySelector("#install-button"),
       menuBackdrop: document.querySelector("#menu-backdrop"),
-      menuButton: document.querySelector("#menu-button"),
+      menuExportButton: document.querySelector("#menu-export-button"),
       missingFoodsExportButton: document.querySelector("#missing-foods-export-button"),
       missingFoodsList: document.querySelector("#missing-foods-list"),
       missingFoodsMessage: document.querySelector("#missing-foods-message"),
@@ -3513,7 +3606,6 @@
       summarySections: document.querySelector("#summary-sections"),
       themeColorMeta: document.querySelector("#theme-color-meta"),
       toggleAlertsButton: document.querySelector("#toggle-alerts-button"),
-      topAddButton: document.querySelector("#top-add-button"),
       themeButtons: [...document.querySelectorAll("[data-theme-choice]")],
       worthNotes: document.querySelector("#worth-notes"),
     });

@@ -19,23 +19,10 @@
       </div>
     </div>
     <header class="app-bar">
-      <button id="menu-button" class="icon-button" type="button" aria-label="Otwórz menu" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
       <button class="brand-button" type="button" data-view-target="start" aria-label="Przejdź do Startu">
         <img class="brand-logo" src="icons/cyber-zdrowie-logo.png" alt="">
         <span>Cyber Zdrowie</span>
       </button>
-      <div class="app-bar-actions">
-        <button id="top-add-button" class="top-action-button top-add-button" type="button" aria-label="Dodaj wpis" title="Dodaj wpis">+</button>
-        <button id="date-picker-button" class="top-action-button date-picker-button" type="button" aria-label="Wybierz datę wpisu" title="Wybierz datę">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8h2m3 0h2m3 0h1m-11 4h2m3 0h2m3 0h1"/></svg>
-        </button>
-        <input id="entry-date" class="date-input-hidden" type="date" required>
-        <button id="install-button" class="top-action-button install-button" type="button" aria-label="Zainstaluj aplikację" title="Zainstaluj aplikację" hidden>
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
-        </button>
-      </div>
     </header>
     <p id="pwa-message" class="pwa-message" role="status" aria-live="polite" hidden></p>
 
@@ -43,10 +30,24 @@
     <aside id="app-menu" class="app-menu" aria-label="Menu główne" aria-hidden="true">
       <div class="menu-header">
         <div>
-          <span class="eyebrow">Lokalnie i offline</span>
           <strong>Cyber Zdrowie</strong>
+          <span>Panel aplikacji</span>
         </div>
-        <button id="close-menu-button" class="icon-button close-button" type="button" aria-label="Zamknij menu">×</button>
+      </div>
+      <div class="menu-quick-actions" aria-label="Szybkie akcje">
+        <button id="date-picker-button" class="menu-action-button date-picker-button" type="button" aria-label="Wybierz datę wpisu" title="Wybierz datę">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8h2m3 0h2m3 0h1m-11 4h2m3 0h2m3 0h1"/></svg>
+          <span>Data wpisu</span>
+        </button>
+        <button id="menu-export-button" class="menu-action-button" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
+          <span>Eksport danych</span>
+        </button>
+        <button id="install-button" class="menu-action-button install-button" type="button" aria-label="Zainstaluj aplikację" title="Zainstaluj aplikację" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
+          <span>Dodaj do telefonu</span>
+        </button>
+        <input id="entry-date" class="date-input-hidden" type="date" required>
       </div>
       <nav class="menu-nav">
         <button type="button" data-view-target="start">Start</button>
@@ -102,6 +103,11 @@
         <span class="status-dot" aria-hidden="true"></span>
         <span id="storage-status">Sprawdzanie pamięci trwałej…</span>
       </div>
+      <p class="menu-credit">
+        Zaprojektowane przez
+        <a href="https://cyberpiotr.pl/" target="_blank" rel="noopener noreferrer">CyberPiotr</a>
+      </p>
+      <button id="close-menu-button" class="menu-close-bottom" type="button" aria-label="Zamknij menu">×</button>
     </aside>
 
     <main class="app-content">
@@ -245,16 +251,27 @@
           <button id="appearance-install-button" class="button secondary" type="button" hidden>Dodaj do telefonu</button>
         </section>
       </section>
+
+      <section class="app-view" data-view="chat" aria-labelledby="chat-heading">
+        <header class="view-header">
+          <span class="eyebrow">Czat</span>
+          <h1 id="chat-heading">Czat</h1>
+          <p class="view-lead">Lekki widok rozmowy. Backend czatu nie jest podpięty w tym etapie.</p>
+        </header>
+        <section class="chat-panel" aria-label="Rozmowa">
+          <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+        </section>
+      </section>
     </main>
 
     <section class="composer-shell" aria-label="Dodaj lub edytuj wpis">
       <div class="composer-input-area">
         <div class="composer">
           <label class="sr-only" for="raw-input">Opisz posiłek lub wklej dane z Gema</label>
-          <textarea id="raw-input" rows="1" placeholder="jajka 120 g..." spellcheck="false"></textarea>
+          <textarea id="raw-input" rows="1" placeholder="" spellcheck="false"></textarea>
           <button id="clear-button" class="composer-clear" type="button" aria-label="Wyczyść pole" hidden>×</button>
           <button id="ai-parse-button" class="composer-ai" type="button" aria-label="Policz posiłek przez AI" title="Policz posiłek przez AI">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11.5 20 4l-6.4 16-3.1-6.5L4 11.5Zm6.5 2L20 4"/></svg>
+            <img src="zmiany/ikony/wyslij.svg" alt="">
           </button>
           <button id="save-button" class="composer-send" type="button" aria-label="Zapisz format Gema" title="Zapisz format Gema" hidden>Zapisz</button>
         </div>
@@ -266,26 +283,26 @@
       </div>
       <nav class="bottom-nav" aria-label="Dolna nawigacja">
         <button type="button" data-view-target="history" aria-label="Historia">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14M5 12h14M5 19h10"/></svg>
+          <img src="zmiany/ikony/historia.svg" alt="">
           <span>Historia</span>
         </button>
-        <button id="bottom-menu-button" type="button" aria-label="Otwórz menu">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
+        <button id="bottom-menu-button" type="button" aria-label="Otwórz menu" aria-expanded="false">
+          <img src="zmiany/ikony/menu.svg" alt="">
           <span>Menu</span>
         </button>
+        <button type="button" data-view-target="start" aria-label="Home">
+          <img src="zmiany/ikony/home.svg" alt="">
+          <span>Home</span>
+        </button>
         <button type="button" data-view-target="dishes" aria-label="Moje dania">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 4h12v16H6V4Zm3 4h6M9 12h6M9 16h4"/></svg>
+          <img src="zmiany/ikony/dania.svg" alt="">
           <span>Dania</span>
         </button>
-        <button id="bottom-add-button" type="button" data-view-target="start" aria-label="Dodaj posiłek">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Dodaj</span>
+        <button type="button" data-view-target="chat" aria-label="Czat">
+          <img src="zmiany/ikony/chat.svg" alt="">
+          <span>Czat</span>
         </button>
       </nav>
-      <p class="composer-credit">
-        Zaprojektowane przez
-        <a href="https://cyberpiotr.pl/" target="_blank" rel="noopener noreferrer">CyberPiotr</a>
-      </p>
     </section>
 
     <template id="empty-entries-template">
