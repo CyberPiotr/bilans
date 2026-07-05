@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-mobile-shell-v37";
-  const APP_LAST_CHANGE = "fix PWA menu layering and light icon polish";
+  const APP_VERSION = "vitatrack-mobile-shell-v38";
+  const APP_LAST_CHANGE = "add shared sync code MVP";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({
@@ -13,5 +13,6 @@
     supabasePublishableKey: "sb_publishable_a1hk0nCE1pV-mloD1nGoNA_ymDJT7SB",
     aiParserFunctionUrl: `${supabaseUrl}/functions/v1/ai-parser`,
     foodLookupFunctionUrl: `${supabaseUrl}/functions/v1/food-lookup`,
+    cloudSyncFunctionUrl: `${supabaseUrl}/functions/v1/cloud-sync`,
   });
 })();

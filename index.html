@@ -51,6 +51,10 @@
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
           <span>Eksport danych</span>
         </button>
+        <button class="menu-action-button" type="button" data-view-target="appearance">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h16m-2-7 2 2-2 2"/></svg>
+          <span>Synchronizacja</span>
+        </button>
         <button id="install-button" class="menu-action-button install-button" type="button" aria-label="Zainstaluj aplikację" title="Zainstaluj aplikację" hidden>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 15v4h14v-4"/></svg>
           <span>Dodaj do telefonu</span>
@@ -255,6 +259,19 @@
             <button type="button" data-theme-choice="light">Jasny</button>
             <button type="button" data-theme-choice="dark">Ciemny</button>
           </div>
+        </section>
+        <section class="surface-card sync-card" aria-labelledby="sync-heading">
+          <h2 id="sync-heading">Synchronizacja</h2>
+          <p class="muted">Wspólny kod pozwala połączyć dwa urządzenia bez pełnych kont użytkowników.</p>
+          <label class="sync-field" for="sync-code-input">
+            <span>Kod synchronizacji</span>
+            <input id="sync-code-input" type="text" inputmode="text" autocomplete="off" placeholder="PIOTR-ANIA">
+          </label>
+          <div class="button-stack sync-actions">
+            <button id="sync-connect-button" class="button primary" type="button">Połącz</button>
+            <button id="sync-now-button" class="button secondary" type="button">Synchronizuj teraz</button>
+          </div>
+          <p id="sync-status-message" class="message" role="status" aria-live="polite">Synchronizacja niepołączona.</p>
         </section>
         <section class="surface-card about-card">
           <h2>Cyber Zdrowie</h2>

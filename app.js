@@ -242,6 +242,7 @@
   let homeProgressDays = 1;
   let isAiParsing = false;
   let isDishAiParsing = false;
+  let isCloudSyncing = false;
   let chatInputMode = "meal";
   const composerDrafts = { meal: "", dish: "" };
   const VIEW_LABELS = {
@@ -265,6 +266,9 @@
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
   const HIDDEN_MISSING_FOODS_KEY = "vitatrack_hidden_missing_foods_v1";
   const REMOVED_MISSING_FOODS_KEY = "vitatrack_removed_missing_foods_v1";
+  const SYNC_CODE_KEY = "vitatrack_sync_code_v1";
+  const SYNC_DEVICE_ID_KEY = "vitatrack_sync_device_id_v1";
+  const SYNC_LAST_SYNC_KEY = "vitatrack_sync_last_sync_v1";
   const FOOD_LOOKUP_TEST_CASES = [
     { query: "jajka", amount_g: 120, variant: null, fdc_id: null, limit: 5 },
     { query: "truskawki", amount_g: 200, variant: null, fdc_id: null, limit: 5 },
@@ -1821,6 +1825,7 @@
     renderMissingFoods();
     renderCustomDishes();
     renderChatMessages();
+    renderSyncSettings();
   }
 
   function setMessage(element, text, type = "") {
@@ -2069,6 +2074,7 @@
       cancelEditEntry(false);
       setMessage(elements.formMessage, "Danie zapisane w Moje dania.", "success");
       await refreshEntries();
+      pushSavedDataToCloud({ syncDishes: [dish] });
     } catch (error) {
       console.error(error);
       setMessage(elements.formMessage, "Nie udało się zapisać dania.", "error");
@@ -2229,6 +2235,270 @@
   function updateAiDebug(changes) {
     Object.assign(aiDebugState, changes);
     renderDebugPanel();
+  }
+
+  function normalizeSyncCode(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+  }
+
+  function readSyncCode() {
+    try {
+      return normalizeSyncCode(localStorage.getItem(SYNC_CODE_KEY));
+    } catch {
+      return "";
+    }
+  }
+
+  function saveSyncCode(value) {
+    const normalized = normalizeSyncCode(value);
+    try {
+      if (normalized) {
+        localStorage.setItem(SYNC_CODE_KEY, normalized);
+      } else {
+        localStorage.removeItem(SYNC_CODE_KEY);
+      }
+    } catch (error) {
+      console.warn("[Cyber Zdrowie Sync Debug]", {
+        action: "save-local-code",
+        entries_count: 0,
+        dishes_count: 0,
+        success: false,
+        error: error.message || error.name,
+      });
+    }
+    return normalized;
+  }
+
+  function readLastSyncAt() {
+    try {
+      return String(localStorage.getItem(SYNC_LAST_SYNC_KEY) || "").trim();
+    } catch {
+      return "";
+    }
+  }
+
+  function saveLastSyncAt(value) {
+    if (!value) return;
+    try {
+      localStorage.setItem(SYNC_LAST_SYNC_KEY, value);
+    } catch (error) {
+      console.warn("[Cyber Zdrowie Sync Debug]", {
+        action: "save-last-sync",
+        entries_count: 0,
+        dishes_count: 0,
+        success: false,
+        error: error.message || error.name,
+      });
+    }
+  }
+
+  function getOrCreateSyncDeviceId() {
+    try {
+      const existing = String(localStorage.getItem(SYNC_DEVICE_ID_KEY) || "").trim();
+      if (existing) return existing;
+      const created = `device_${createId()}`;
+      localStorage.setItem(SYNC_DEVICE_ID_KEY, created);
+      return created;
+    } catch {
+      return `device_${createId()}`;
+    }
+  }
+
+  function isCloudSyncEnabled() {
+    return Boolean(readSyncCode());
+  }
+
+  function setSyncMessage(text, type = "") {
+    if (!elements.syncStatusMessage) return;
+    setMessage(elements.syncStatusMessage, text, type);
+  }
+
+  function renderSyncSettings() {
+    const code = readSyncCode();
+    const lastSync = readLastSyncAt();
+    if (elements.syncCodeInput && document.activeElement !== elements.syncCodeInput) {
+      elements.syncCodeInput.value = code;
+    }
+    if (elements.syncNowButton) elements.syncNowButton.disabled = !code || isCloudSyncing;
+    if (elements.syncConnectButton) elements.syncConnectButton.disabled = isCloudSyncing;
+    if (elements.syncStatusMessage) {
+      const status = code
+        ? `Połączono lokalnie. Ostatnia synchronizacja: ${lastSync || "nigdy"}.`
+        : "Synchronizacja niepołączona.";
+      elements.syncStatusMessage.textContent = status;
+      elements.syncStatusMessage.className = "message";
+    }
+  }
+
+  function setCloudSyncLoading(loading) {
+    isCloudSyncing = loading;
+    if (elements.syncConnectButton) elements.syncConnectButton.disabled = loading;
+    if (elements.syncNowButton) elements.syncNowButton.disabled = loading || !readSyncCode();
+  }
+
+  function logCloudSyncDebug({ action, entriesCount = 0, dishesCount = 0, success, error = "", serverTime = "" }) {
+    const payload = {
+      action,
+      entries_count: entriesCount,
+      dishes_count: dishesCount,
+      success: Boolean(success),
+      server_time: serverTime || "-",
+    };
+    if (error) payload.error = shortDebugMessage(error, 140);
+    console.info("[Cyber Zdrowie Sync Debug]", payload);
+  }
+
+  async function requestCloudSync(action, { syncEntries = [], syncDishes = [], since = null } = {}) {
+    const config = window.VITATRACK_CONFIG || {};
+    const functionUrl = String(config.cloudSyncFunctionUrl || "").trim();
+    const publishableKey = String(config.supabasePublishableKey || "").trim();
+    const syncCode = readSyncCode();
+    const entriesCount = Array.isArray(syncEntries) ? syncEntries.length : 0;
+    const dishesCount = Array.isArray(syncDishes) ? syncDishes.length : 0;
+
+    if (!functionUrl) {
+      const error = new Error("Cloud sync URL is not configured");
+      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: error.message });
+      throw error;
+    }
+    if (!syncCode) {
+      const error = new Error("Podaj kod synchronizacji.");
+      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: error.message });
+      throw error;
+    }
+
+    const headers = { "Content-Type": "application/json" };
+    if (publishableKey) headers.apikey = publishableKey;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 35_000);
+    let response;
+    try {
+      response = await fetch(functionUrl, {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          action,
+          sync_code: syncCode,
+          device_id: getOrCreateSyncDeviceId(),
+          entries: Array.isArray(syncEntries) ? syncEntries : [],
+          dishes: Array.isArray(syncDishes) ? syncDishes : [],
+          since,
+        }),
+      });
+    } catch (error) {
+      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: error.message || error.name });
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+
+    const responseText = await response.text();
+    let payload = null;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch (error) {
+      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: "non-json response" });
+      throw new Error(`Cloud sync returned non-JSON response: HTTP ${response.status}`);
+    }
+    if (!response.ok || !payload?.ok) {
+      const message = payload?.error || `HTTP ${response.status}`;
+      logCloudSyncDebug({ action, entriesCount, dishesCount, success: false, error: message, serverTime: payload?.server_time });
+      throw new Error(message);
+    }
+    logCloudSyncDebug({
+      action,
+      entriesCount,
+      dishesCount,
+      success: true,
+      serverTime: payload.server_time,
+    });
+    return payload;
+  }
+
+  async function importCloudSyncPayload(payload) {
+    const pulledEntries = Array.isArray(payload?.entries) ? payload.entries : [];
+    const pulledDishes = Array.isArray(payload?.dishes) ? payload.dishes : [];
+    const validEntries = pulledEntries.filter(isValidImportedEntry).map(normalizeImportedEntry);
+    const validDishes = pulledDishes.filter(isValidImportedDish).map(normalizeImportedDish);
+    const [importedEntries, importedDishes] = await Promise.all([
+      window.ketoDb.importEntries(validEntries),
+      window.ketoDb.importCustomDishes(validDishes),
+    ]);
+    if (importedEntries || importedDishes) await refreshEntries();
+    return { importedEntries, importedDishes };
+  }
+
+  async function handleSyncConnect() {
+    const normalized = saveSyncCode(elements.syncCodeInput?.value || "");
+    renderSyncSettings();
+    if (!normalized) {
+      setSyncMessage("Podaj kod synchronizacji.", "error");
+      return;
+    }
+    setCloudSyncLoading(true);
+    setSyncMessage("Łączenie z przestrzenią synchronizacji...");
+    try {
+      await requestCloudSync("setup");
+      setSyncMessage("Połączono. Użyj „Synchronizuj teraz”, żeby wysłać i pobrać dane.", "success");
+    } catch (error) {
+      console.error("[Cyber Zdrowie Sync Debug]", { action: "setup", success: false, error: error.message || error.name });
+      setSyncMessage(`Nie udało się połączyć: ${shortDebugMessage(error.message || error.name)}`, "error");
+    } finally {
+      setCloudSyncLoading(false);
+    }
+  }
+
+  async function syncNow() {
+    const normalized = saveSyncCode(elements.syncCodeInput?.value || readSyncCode());
+    renderSyncSettings();
+    if (!normalized) {
+      setSyncMessage("Podaj kod synchronizacji.", "error");
+      return;
+    }
+    setCloudSyncLoading(true);
+    setSyncMessage("Synchronizacja w toku...");
+    try {
+      const [allEntries, allCustomDishes] = await Promise.all([
+        window.ketoDb.getAllEntries(),
+        window.ketoDb.getAllCustomDishes(),
+      ]);
+      const payload = await requestCloudSync("sync", {
+        syncEntries: allEntries,
+        syncDishes: allCustomDishes,
+        since: null,
+      });
+      const { importedEntries, importedDishes } = await importCloudSyncPayload(payload);
+      saveLastSyncAt(payload.server_time || new Date().toISOString());
+      setSyncMessage(
+        `Synchronizacja zakończona. Pobrano nowe: ${importedEntries} wpisów, ${importedDishes} dań.`,
+        "success",
+      );
+    } catch (error) {
+      console.error("[Cyber Zdrowie Sync Debug]", { action: "sync", success: false, error: error.message || error.name });
+      setSyncMessage(`Synchronizacja nieudana: ${shortDebugMessage(error.message || error.name)}`, "error");
+    } finally {
+      setCloudSyncLoading(false);
+    }
+  }
+
+  function pushSavedDataToCloud({ syncEntries = [], syncDishes = [] } = {}) {
+    if (!isCloudSyncEnabled()) return;
+    requestCloudSync("push", { syncEntries, syncDishes })
+      .then((payload) => {
+        saveLastSyncAt(payload.server_time || new Date().toISOString());
+        renderSyncSettings();
+      })
+      .catch((error) => {
+        console.warn("[Cyber Zdrowie Sync Debug]", {
+          action: "push",
+          entries_count: syncEntries.length,
+          dishes_count: syncDishes.length,
+          success: false,
+          error: error.message || error.name,
+        });
+        setSyncMessage("Lokalny zapis został zachowany. Push do chmury nieudany.", "error");
+      });
   }
 
   function summarizeFoodLookupPayload(payload) {
@@ -2851,6 +3121,7 @@
       : lookupResult.status === "not_found" ? "baza: not_found, zapisano fallback AI" : `baza: ${lookupResult.status}`;
     setMessage(elements.formMessage, `Posiłek zapisany. ${sourceMessage}.`, "success");
     await refreshEntries();
+    pushSavedDataToCloud({ syncEntries: [entry] });
     return true;
   }
 
@@ -2916,6 +3187,7 @@
     cancelEditEntry(false);
     setMessage(messageElement, "Danie policzone przez AI i zapisane w Moje dania.", "success");
     await refreshEntries();
+    pushSavedDataToCloud({ syncDishes: [dish] });
     return true;
   }
 
@@ -3128,6 +3400,7 @@
       cancelEditEntry(false);
       setMessage(elements.formMessage, confirmation, "success");
       await refreshEntries();
+      pushSavedDataToCloud({ syncEntries: [entry] });
     } catch (error) {
       console.error(error);
       setMessage(elements.formMessage, "Nie udało się zapisać wpisu.", "error");
@@ -3246,6 +3519,7 @@
       input.value = "";
       setMessage(elements.dishesMessage, `Dodano ${formatNumber(portionG)} g dania do bilansu.`, "success");
       await refreshEntries();
+      pushSavedDataToCloud({ syncEntries: [entry] });
     } catch (error) {
       console.error(error);
       setMessage(elements.dishesMessage, "Nie udało się dodać porcji.", "error");
@@ -3642,6 +3916,11 @@
     elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
     elements.debugResetCostButton.addEventListener("click", resetDebugCostTotal);
     elements.foodLookupTestButton.addEventListener("click", runFoodLookupSmokeTest);
+    elements.syncConnectButton.addEventListener("click", handleSyncConnect);
+    elements.syncNowButton.addEventListener("click", syncNow);
+    elements.syncCodeInput.addEventListener("input", () => {
+      elements.syncCodeInput.value = normalizeSyncCode(elements.syncCodeInput.value);
+    });
     document.querySelectorAll("[data-view-target]").forEach((button) => {
       button.addEventListener("click", () => switchView(button.dataset.viewTarget));
     });
@@ -3802,6 +4081,10 @@
       settingsMessage: document.querySelector("#settings-message"),
       storageStatus: document.querySelector("#storage-status"),
       summarySections: document.querySelector("#summary-sections"),
+      syncCodeInput: document.querySelector("#sync-code-input"),
+      syncConnectButton: document.querySelector("#sync-connect-button"),
+      syncNowButton: document.querySelector("#sync-now-button"),
+      syncStatusMessage: document.querySelector("#sync-status-message"),
       themeColorMeta: document.querySelector("#theme-color-meta"),
       toastRegion: document.querySelector("#toast-region"),
       toggleAlertsButton: document.querySelector("#toggle-alerts-button"),
@@ -3810,6 +4093,7 @@
     });
 
     renderDebugPanel();
+    renderSyncSettings();
     elements.entryDate.value = localDateString();
     updateDatePickerLabel();
     resizeComposer();

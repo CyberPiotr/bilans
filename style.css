@@ -605,6 +605,22 @@ input, select { width: 100%; min-height: 44px; padding: 8px 10px; border-radius:
 .theme-switcher { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 16px; padding: 5px; border-radius: 15px; background: var(--app-surface-soft); }
 .theme-switcher button { min-height: 42px; border: 0; border-radius: 11px; background: transparent; color: var(--app-muted); font-size: .76rem; font-weight: 800; }
 .theme-switcher button.active { background: var(--app-surface); color: var(--app-accent-strong); box-shadow: var(--shadow-soft); }
+.sync-card { display: grid; gap: 12px; margin-top: 12px; }
+.sync-field { display: grid; gap: 6px; color: var(--app-muted); font-size: .74rem; font-weight: 850; }
+.sync-field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-input);
+  color: var(--app-text);
+  padding: 0 13px;
+  font-weight: 850;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.sync-actions { margin-top: 2px; }
+.sync-actions .button:disabled { opacity: .58; cursor: wait; }
 .about-card { margin-top: 12px; }
 
 .composer-shell {
