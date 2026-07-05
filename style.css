@@ -1,9 +1,9 @@
 :root {
   color-scheme: light;
-  --app-bg: #f8faf7;
-  --app-surface: #fffef9;
-  --app-surface-soft: #eef4ed;
-  --app-input: #fffef9;
+  --app-bg: #f6f7f5;
+  --app-surface: #fefefc;
+  --app-surface-soft: #eef0ed;
+  --app-input: #fefefc;
   --app-text: #152018;
   --app-muted: #667064;
   --app-accent: #138a55;
@@ -23,13 +23,13 @@
   --app-tag-bg: #e2f5e9;
   --app-overlay: rgb(8 17 31 / 48%);
   --cyber-orange: #ff6a00;
-  --brand-bg: #f8faf7;
-  --brand-surface: #fffef9;
+  --brand-bg: #f6f7f5;
+  --brand-surface: #fefefc;
   --brand-primary: #138a55;
   --brand-logo-size: 34px;
-  --brand-splash-duration: 1000ms;
+  --brand-splash-duration: 1300ms;
   --vt-bg: var(--app-bg);
-  --vt-surface: var(--app-surface);
+  --vt-surface: rgb(254 254 252 / 86%);
   --vt-text: var(--app-text);
   --vt-primary: var(--app-accent);
   --vt-radius-sm: 8px;
@@ -42,14 +42,14 @@
   --vt-space-5: 24px;
   --vt-space-6: 32px;
   --vt-space-7: 48px;
-  --vt-bg-soft: #fbfcf8;
-  --vt-surface-solid: #fffef9;
-  --vt-surface-muted: #eef4ed;
+  --vt-bg-soft: #fafaf8;
+  --vt-surface-solid: #fefefc;
+  --vt-surface-muted: #eef0ed;
   --vt-text-muted: #667064;
   --vt-text-soft: #8a9288;
   --vt-primary-strong: #0b6f43;
   --vt-primary-soft: rgb(19 138 85 / 12%);
-  --vt-border: rgb(21 32 24 / 12%);
+  --vt-border: rgb(15 23 18 / 10%);
   --vt-border-strong: rgb(21 32 24 / 20%);
   --vt-danger: #d94a3a;
   --vt-warning: #d99a24;
@@ -1738,10 +1738,11 @@ body {
   bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
 }
 
-/* Stage 7 PWA icon, safe-area, light mode, segment, and menu polish */
+/* Stage 8 PWA menu layer, neutral light mode, icon, and animation polish */
 :root {
   --bottom-safe-area: env(safe-area-inset-bottom);
   --segment-height: 40px;
+  --menu-slide-distance: calc(100% + var(--bottom-nav-height) + var(--bottom-safe-area) + 32px);
 }
 
 html,
@@ -1755,13 +1756,13 @@ body {
   right: 0;
   left: 0;
   width: 100%;
-  background: var(--app-surface);
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-bg));
 }
 
 .bottom-nav {
   z-index: 62;
   width: 100%;
-  background: var(--app-surface);
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-bg));
 }
 
 .home-period-switcher,
@@ -1807,8 +1808,10 @@ body {
 .app-menu {
   z-index: 45;
   bottom: calc(var(--bottom-nav-height) + var(--bottom-safe-area));
-  transform: translateY(112%);
-  transition: transform 480ms cubic-bezier(.22, 1, .36, 1);
+  background: color-mix(in srgb, var(--app-surface) 98%, var(--app-bg));
+  transform: translate3d(0, var(--menu-slide-distance), 0);
+  will-change: transform;
+  transition: transform 1300ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .menu-backdrop {
@@ -1817,11 +1820,11 @@ body {
 }
 
 .app-menu.open {
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .app-menu {
-    transition-duration: 0s;
+    transition-duration: 160ms;
   }
 }

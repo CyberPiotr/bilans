@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-mobile-shell-v36";
-  const APP_LAST_CHANGE = "polish PWA icons safe area and light mode";
+  const APP_VERSION = "vitatrack-mobile-shell-v37";
+  const APP_LAST_CHANGE = "fix PWA menu layering and light icon polish";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({
