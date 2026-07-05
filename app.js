@@ -607,6 +607,75 @@
     item.append(" ", badge);
   }
 
+  function getProductFoodFormDisplay(product) {
+    const foodForm = product?.foodForm || product?.food_form;
+    if (!foodForm || typeof foodForm !== "object") return "";
+    return foodForm.display_form_pl || foodForm.displayFormPl || foodForm.name_pl || foodForm.name || foodForm.code || "";
+  }
+
+  function appendProductFoodForm(item, product) {
+    const display = getProductFoodFormDisplay(product);
+    if (!display) return;
+    const form = document.createElement("span");
+    form.className = "ingredient-food-form";
+    form.textContent = `Forma: ${display}`;
+    item.append(" ", form);
+  }
+
+  function normalizeLookupQuery(query) {
+    return String(query || "").replace(/\s+/g, " ").trim();
+  }
+
+  function getLookupQueryCandidates(product) {
+    const candidates = [
+      product?.name,
+      product?.originalName,
+      product?.original_name,
+      product?.rawName,
+      product?.raw_name,
+      product?.originalText,
+      product?.original_text,
+      product?.query,
+    ].map(normalizeLookupQuery).filter(Boolean);
+    return [...new Set(candidates)].slice(0, 2);
+  }
+
+  function getFoodLookupPayloadProductName(payload) {
+    return payload?.product?.product_name || payload?.product?.name || payload?.product_name || null;
+  }
+
+  function getFoodLookupPayloadFoodForm(payload) {
+    const foodForm = payload?.product?.food_form || payload?.product?.foodForm || payload?.food_form || payload?.foodForm || null;
+    return foodForm && typeof foodForm === "object" ? foodForm : null;
+  }
+
+  function getLookupNutrientPresence(payload) {
+    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
+    return {
+      kalorie: nutrients.kalorie?.value_per_100g !== null && nutrients.kalorie?.value_per_100g !== undefined,
+      bialko: nutrients.bialko?.value_per_100g !== null && nutrients.bialko?.value_per_100g !== undefined,
+      tluszcz: nutrients.tluszcz?.value_per_100g !== null && nutrients.tluszcz?.value_per_100g !== undefined,
+      wegle_netto: nutrients.wegle_netto?.value_per_100g !== null && nutrients.wegle_netto?.value_per_100g !== undefined,
+    };
+  }
+
+  function logFoodLookupDebug({ rawInput, product, query, result = null, metadata = null, error = null }) {
+    const payload = result?.payload || null;
+    console.log("[VitaTrack Lookup Debug]", {
+      raw_user_input: rawInput || "",
+      parsed_ingredient_name: product?.name || "",
+      normalized_lookup_query: query || "",
+      amount_g: product?.amountG ?? null,
+      http_status: result?.http || (error ? "error" : null),
+      lookup_status: result?.kind || (error ? "error" : null),
+      returned_product_name: getFoodLookupPayloadProductName(payload),
+      food_form_display_form_pl: getFoodLookupPayloadFoodForm(payload)?.display_form_pl || null,
+      nutrient_presence: getLookupNutrientPresence(payload),
+      final_ui_status: metadata?.dataSourceType || null,
+      error: error?.message || null,
+    });
+  }
+
   function getIngredientSourceCounts(products = []) {
     return products.reduce((counts, product) => {
       const source = getProductSourceBadgeInfo(product);
@@ -1213,6 +1282,7 @@
             const item = document.createElement("li");
             item.append(`${product.name} — ${formatNumber(product.amountG)} g`);
             appendProductSourceBadge(item, product);
+            appendProductFoodForm(item, product);
             productsList.append(item);
           });
           productsSection.append(productsTitle, productsList);
@@ -1550,6 +1620,7 @@
           const item = document.createElement("li");
           item.append(`${product.name} — ${formatNumber(product.amountG)} g`);
           appendProductSourceBadge(item, product);
+          appendProductFoodForm(item, product);
           productsList.append(item);
         });
         productsSection.append(productsTitle, productsList);
@@ -1954,8 +2025,8 @@
   function createProductLookupMetadata(product, result = null, error = null) {
     const baseProduct = {
       ...product,
-      query: product.name,
-      originalName: product.name,
+      query: product.lookupQuery || product.query || product.name,
+      originalName: product.originalName || product.original_name || product.rawName || product.raw_name || product.name,
       amountG: product.amountG,
     };
     if (error) {
@@ -1983,14 +2054,16 @@
     if (result.kind === "matched") {
       const payload = result.payload || {};
       const isProxy = isProxyLookupResult(result);
+      const foodForm = getFoodLookupPayloadFoodForm(payload);
       return {
         ...baseProduct,
         lookupStatus: "matched",
-        matchedName: payload.product?.product_name || payload.product?.name || payload.product_name || null,
+        matchedName: getFoodLookupPayloadProductName(payload),
         fdcId: payload.product?.fdc_id ?? payload.fdc_id ?? null,
         requiresConfirmation: payload.match?.requires_confirmation === true,
         matchType: payload.match?.match_type || (isProxy ? "proxy" : "exact"),
         dataSourceType: isProxy ? "food_database_proxy" : "food_database",
+        foodForm,
       };
     }
     if (result.kind === "not_found") {
@@ -2015,7 +2088,7 @@
     };
   }
 
-  async function resolveMealWithFoodLookup(products, fallbackParsedData) {
+  async function resolveMealWithFoodLookup(products, fallbackParsedData, rawInput = "") {
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak produktów" });
       return {
@@ -2034,14 +2107,7 @@
     const results = [];
     for (const product of products) {
       try {
-        const result = await requestFoodLookup({
-          query: product.name,
-          amount_g: product.amountG,
-          variant: null,
-          fdc_id: null,
-          limit: 5,
-        });
-        results.push({ product, result });
+        results.push(await lookupProductWithDebug(product, rawInput));
       } catch (error) {
         console.warn("[Food Lookup] Technical error, falling back to AI nutrients", error);
         updateAiDebug({
@@ -2148,7 +2214,7 @@
     };
   }
 
-  async function resolveDishIngredientsWithFoodLookup(products) {
+  async function resolveDishIngredientsWithFoodLookup(products, rawInput = "") {
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak składników dania" });
       return {
@@ -2165,14 +2231,8 @@
     const resolvedProducts = [];
     for (const product of products) {
       try {
-        const result = await requestFoodLookup({
-          query: product.name,
-          amount_g: product.amountG,
-          variant: null,
-          fdc_id: null,
-          limit: 5,
-        });
-        resolvedProducts.push(createProductLookupMetadata(product, result));
+        const lookup = await lookupProductWithDebug(product, rawInput);
+        resolvedProducts.push(createProductLookupMetadata(lookup.product, lookup.result));
       } catch (error) {
         console.warn("[Food Lookup] Dish ingredient lookup failed", product, error);
         resolvedProducts.push(createProductLookupMetadata(product, null, error));
@@ -2227,6 +2287,7 @@
   async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
     const config = window.VITATRACK_CONFIG || {};
     const functionUrl = String(config.foodLookupFunctionUrl || "").trim();
+    const normalizedQuery = normalizeLookupQuery(query);
     if (!functionUrl) {
       throw new Error("Food lookup URL is not configured");
     }
@@ -2234,7 +2295,7 @@
     const response = await fetch(functionUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, amount_g, variant, fdc_id, limit }),
+      body: JSON.stringify({ query: normalizedQuery, amount_g, variant, fdc_id, limit }),
     });
     const responseText = await response.text();
     let payload = null;
@@ -2245,12 +2306,40 @@
     }
 
     if (response.ok && payload?.status === "matched") {
-      return { kind: "matched", http: response.status, payload };
+      return { kind: "matched", http: response.status, payload, query: normalizedQuery };
     }
     if (response.status === 404 && payload?.status === "not_found") {
-      return { kind: "not_found", http: response.status, payload };
+      return { kind: "not_found", http: response.status, payload, query: normalizedQuery };
     }
     throw new Error(`Food lookup technical error: HTTP ${response.status}`);
+  }
+
+  async function lookupProductWithDebug(product, rawInput = "") {
+    const candidates = getLookupQueryCandidates(product);
+    const lookupCandidates = candidates.length ? candidates : [normalizeLookupQuery(product.name)];
+    for (let index = 0; index < lookupCandidates.length; index += 1) {
+      const query = lookupCandidates[index];
+      const lookupProduct = { ...product, lookupQuery: query };
+      try {
+        const result = await requestFoodLookup({
+          query,
+          amount_g: product.amountG,
+          variant: null,
+          fdc_id: null,
+          limit: 5,
+        });
+        const metadata = createProductLookupMetadata(lookupProduct, result);
+        logFoodLookupDebug({ rawInput, product, query: result.query || query, result, metadata });
+        if (result.kind !== "not_found" || index === lookupCandidates.length - 1) {
+          return { product: lookupProduct, result };
+        }
+      } catch (error) {
+        const metadata = createProductLookupMetadata(lookupProduct, null, error);
+        logFoodLookupDebug({ rawInput, product, query, metadata, error });
+        throw error;
+      }
+    }
+    return { product, result: null };
   }
 
   function formatFoodLookupTestResult(testCase, result) {
@@ -2428,7 +2517,7 @@
     }
 
     const products = normalizeAiProducts(result.produkty || result.products);
-    const lookupResult = await resolveMealWithFoodLookup(products, fallbackParsedData);
+    const lookupResult = await resolveMealWithFoodLookup(products, fallbackParsedData, input);
     const entry = {
       id: typeof result.id === "string" && result.id ? result.id : createId(),
       date,
@@ -2487,7 +2576,7 @@
     if (existingDish && !window.confirm("Danie o takim ID już istnieje. Nadpisać?")) return false;
     const now = new Date().toISOString();
     const products = normalizeAiProducts(result.products || result.produkty || result.ingredients || result.skladniki);
-    const lookupResult = await resolveDishIngredientsWithFoodLookup(products);
+    const lookupResult = await resolveDishIngredientsWithFoodLookup(products, input);
     const dish = {
       id,
       name: typeof (result.name || result.nazwa) === "string" && (result.name || result.nazwa).trim()

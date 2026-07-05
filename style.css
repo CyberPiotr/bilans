@@ -419,6 +419,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .ingredient-source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
 .ingredient-source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
 .ingredient-source-badge.custom-dish, .ingredient-source-badge.unknown { border-color: var(--app-border); background: var(--app-surface); color: var(--app-muted); }
+.ingredient-food-form { color: var(--app-muted); font-size: .68rem; font-weight: 800; }
 .entry-details pre { max-height: 240px; overflow: auto; margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); color: var(--app-text); font-size: .72rem; white-space: pre-wrap; }
 
 .missing-foods-panel { display: grid; gap: 16px; }
