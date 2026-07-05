@@ -659,6 +659,38 @@
     };
   }
 
+  function getLookupNutrientValue(payload, keys) {
+    const nutrients = payload?.nutrients && typeof payload.nutrients === "object" ? payload.nutrients : {};
+    const factor = Number(payload?.amount?.factor);
+    const nutrientKey = keys.find((key) => nutrients[key] && typeof nutrients[key] === "object");
+    if (!nutrientKey) {
+      return { value_per_100g: null, value_for_amount: null, unit: null, source: null, status: null };
+    }
+    const nutrient = nutrients[nutrientKey];
+    const valuePer100g = Number(nutrient.value_per_100g);
+    const hasValue = Number.isFinite(valuePer100g);
+    return {
+      value_per_100g: hasValue ? valuePer100g : null,
+      value_for_amount: hasValue && Number.isFinite(factor) ? valuePer100g * factor : null,
+      unit: nutrient.unit || null,
+      source: nutrient.source || payload?.source || payload?.product?.source || null,
+      status: nutrient.status || payload?.status || null,
+    };
+  }
+
+  function getLookupNutrientValues(payload) {
+    return {
+      kcal: getLookupNutrientValue(payload, ["kalorie", "kcal", "calories", "energy_kcal"]),
+      protein_g: getLookupNutrientValue(payload, ["bialko", "protein_g", "protein"]),
+      fat_g: getLookupNutrientValue(payload, ["tluszcz", "fat_g", "fat"]),
+      carbs_net_g: getLookupNutrientValue(payload, ["wegle_netto", "carbs_net_g", "net_carbs_g", "carbohydrate_net"]),
+      fiber_g: getLookupNutrientValue(payload, ["blonnik", "fiber_g", "fiber"]),
+      amount_factor: Number.isFinite(Number(payload?.amount?.factor)) ? Number(payload.amount.factor) : null,
+      payload_status: payload?.status || null,
+      payload_source: payload?.source || payload?.product?.source || null,
+    };
+  }
+
   function logFoodLookupDebug({ rawInput, product, query, result = null, metadata = null, error = null }) {
     const payload = result?.payload || null;
     console.log("[VitaTrack Lookup Debug]", {
@@ -671,6 +703,7 @@
       returned_product_name: getFoodLookupPayloadProductName(payload),
       food_form_display_form_pl: getFoodLookupPayloadFoodForm(payload)?.display_form_pl || null,
       nutrient_presence: getLookupNutrientPresence(payload),
+      nutrient_values: getLookupNutrientValues(payload),
       final_ui_status: metadata?.dataSourceType || null,
       error: error?.message || null,
     });
