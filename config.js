@@ -1,8 +1,8 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "vitatrack-mobile-shell-v31";
-  const APP_LAST_CHANGE = "redesign Cyber Zdrowie mobile UI";
+  const APP_VERSION = "vitatrack-mobile-shell-v32";
+  const APP_LAST_CHANGE = "refine Cyber Zdrowie mobile layout";
   const supabaseUrl = "https://bfugtsaxwzpumjmwfknf.supabase.co";
 
   window.VITATRACK_CONFIG = Object.freeze({

@@ -242,11 +242,24 @@
   let homeProgressDays = 1;
   let isAiParsing = false;
   let isDishAiParsing = false;
-  const composerDrafts = { meal: "", chat: "" };
+  let chatInputMode = "meal";
+  const composerDrafts = { meal: "", note: "", dish: "" };
+  const VIEW_LABELS = {
+    start: "Home",
+    history: "Historia",
+    dishes: "Moje dania",
+    chat: "Czat",
+    alerts: "Co warto",
+    progress: "Cele",
+    goals: "Moje cele",
+    "missing-foods": "Braki",
+    backup: "Kopia",
+    appearance: "Wygląd",
+  };
   const chatMessages = [
     {
       role: "ai",
-      text: "Czat jest przygotowany jako widok UI. Backend rozmowy nie jest podpięty w tym etapie.",
+      text: "Wybierz tryb: Posiłek policzy opis przez AI, Wpis jest miejscem na przyszły czat, a Danie zapisze przepis do Moich dań.",
     },
   ];
   const AI_DEBUG_TOTAL_COST_KEY = "vitatrack_ai_debug_total_cost_usd";
@@ -1792,6 +1805,7 @@
     syncComposerDraft();
     currentView = viewName;
     document.body.dataset.currentView = viewName;
+    updateViewLabel();
     document.querySelectorAll(".app-view").forEach((view) => view.classList.toggle("active", view === target));
     document.querySelectorAll("[data-view-target]").forEach((button) => {
       button.classList.toggle("active", button.dataset.viewTarget === viewName);
@@ -1802,12 +1816,27 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function updateViewLabel(label = VIEW_LABELS[currentView] || "Widok") {
+    if (elements.appViewLabel) {
+      elements.appViewLabel.textContent = label;
+    }
+  }
+
   function openMenu() {
     elements.appMenu.classList.add("open");
     elements.appMenu.setAttribute("aria-hidden", "false");
     elements.menuBackdrop.hidden = false;
     elements.bottomMenuButton.setAttribute("aria-expanded", "true");
     document.body.classList.add("menu-open");
+    updateViewLabel("Menu");
+  }
+
+  function toggleMenu() {
+    if (elements.appMenu.classList.contains("open")) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
   }
 
   function closeMenu() {
@@ -1816,6 +1845,7 @@
     elements.menuBackdrop.hidden = true;
     elements.bottomMenuButton.setAttribute("aria-expanded", "false");
     document.body.classList.remove("menu-open");
+    updateViewLabel();
   }
 
   function toggleDebugPanel() {
@@ -1835,7 +1865,7 @@
   }
 
   function getComposerMode() {
-    return currentView === "chat" ? "chat" : "meal";
+    return currentView === "chat" ? chatInputMode : "meal";
   }
 
   function syncComposerDraft() {
@@ -1843,20 +1873,54 @@
     composerDrafts[getComposerMode()] = elements.rawInput.value;
   }
 
+  function updateActiveChatModeButtons() {
+    if (!elements.chatModeButtons) return;
+    elements.chatModeButtons.forEach((button) => {
+      const active = button.dataset.chatMode === chatInputMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function setChatInputMode(mode) {
+    if (!["meal", "note", "dish"].includes(mode)) return;
+    syncComposerDraft();
+    chatInputMode = mode;
+    updateComposerMode();
+    requestAnimationFrame(resizeComposer);
+  }
+
   function updateComposerMode() {
     if (!elements.rawInput || !elements.aiParseButton) return;
     const mode = getComposerMode();
     elements.rawInput.value = composerDrafts[mode] || "";
-    if (mode === "chat") {
-      elements.rawInput.placeholder = "Napisz wiadomość...";
-      elements.aiParseButton.setAttribute("aria-label", "Wyślij wiadomość");
-      elements.aiParseButton.title = "Wyślij wiadomość";
+    updateActiveChatModeButtons();
+
+    const modeConfig = {
+      meal: {
+        placeholder: "Opisz posiłek...",
+        label: "Policz posiłek przez AI",
+      },
+      note: {
+        placeholder: "Napisz wpis lub pytanie...",
+        label: "Wyślij wpis",
+      },
+      dish: {
+        placeholder: "Opisz danie do zapisania, np. gulasz: wołowina 600 g... Całość 1200 g",
+        label: "Utwórz danie do zapisania przez AI",
+      },
+    }[mode] || {
+      placeholder: "Opisz posiłek...",
+      label: "Policz posiłek przez AI",
+    };
+
+    elements.rawInput.placeholder = modeConfig.placeholder;
+    elements.aiParseButton.setAttribute("aria-label", modeConfig.label);
+    elements.aiParseButton.title = modeConfig.label;
+    if (!editingEntryId && !editingDishId) {
       elements.saveButton.hidden = true;
-      setMessage(elements.formMessage, "");
-    } else {
-      elements.rawInput.placeholder = "Opisz posiłek...";
-      elements.aiParseButton.setAttribute("aria-label", "Policz posiłek przez AI");
-      elements.aiParseButton.title = "Policz posiłek przez AI";
+      elements.cancelEditButton.hidden = true;
+      elements.editModeMessage.hidden = true;
     }
     resizeComposer();
   }
@@ -1884,7 +1948,8 @@
   }
 
   function focusComposer() {
-    switchView("start");
+    setChatInputMode("meal");
+    switchView("chat");
     elements.rawInput.focus();
   }
 
@@ -2843,25 +2908,84 @@
   function handleChatSubmit() {
     const input = elements.rawInput.value.trim();
     if (!input) {
-      setMessage(elements.formMessage, "Napisz wiadomość przed wysłaniem.", "error");
+      setMessage(elements.formMessage, "Napisz wpis przed wysłaniem.", "error");
       elements.rawInput.focus();
       return;
     }
     chatMessages.push({ role: "user", text: input });
     chatMessages.push({
       role: "ai",
-      text: "To jest widok testowy czatu. Backend rozmowy nie jest jeszcze podpięty, więc wiadomość nie została wysłana do API.",
+      text: "Tryb Wpis jest przygotowany w UI. Backend rozmowy nie jest jeszcze podpięty, więc wpis nie został wysłany do API.",
     });
-    composerDrafts.chat = "";
+    composerDrafts.note = "";
     elements.rawInput.value = "";
     setMessage(elements.formMessage, "");
     renderChatMessages();
     resizeComposer();
   }
 
+  async function handleChatDishCreate() {
+    if (isDishAiParsing) return;
+    const input = elements.rawInput.value.trim();
+    if (!input) {
+      setMessage(elements.formMessage, "Opisz danie przed utworzeniem.", "error");
+      elements.rawInput.focus();
+      return;
+    }
+    if (editingEntryId || editingDishId) {
+      setMessage(elements.formMessage, "Zakończ edycję przed utworzeniem nowego dania przez AI.", "error");
+      return;
+    }
+
+    isDishAiParsing = true;
+    elements.aiParseButton.disabled = true;
+    elements.clearButton.disabled = true;
+    elements.aiParseButton.classList.add("loading");
+    setMessage(elements.formMessage, "Tworzenie dania…");
+    try {
+      const result = await requestAiParse(input, "parse_dish");
+      const saved = await saveAiDish(result, input, elements.formMessage);
+      if (saved) {
+        composerDrafts.dish = "";
+        elements.rawInput.value = "";
+        setMessage(elements.formMessage, "Danie zapisane w Moich daniach.", "success");
+      }
+    } catch (error) {
+      if (aiDebugState.request !== "failed") {
+        updateAiDebug({
+          request: "failed",
+          errorType: error.name || "Error",
+          errorMessage: shortDebugMessage(error.message || error.name),
+        });
+      }
+      console.error("AI dish parser failed:", error);
+      setMessage(
+        elements.formMessage,
+        error.code === "MISSING_SUPABASE_PUBLISHABLE_KEY"
+          ? "Brakuje publicznego klucza Supabase w config.js"
+          : error.code === "MISSING_DISH_TOTAL_MASS"
+            ? "Podaj masę całości dania, np. „Całość po ugotowaniu 1200 g”."
+            : "AI nie utworzyło dania. Doprecyzuj opis i masę całości.",
+        "error",
+      );
+    } finally {
+      isDishAiParsing = false;
+      elements.aiParseButton.disabled = false;
+      elements.clearButton.disabled = false;
+      elements.aiParseButton.classList.remove("loading");
+      updateComposerMode();
+      resizeComposer();
+    }
+  }
+
   function handleComposerPrimaryAction() {
-    if (getComposerMode() === "chat") {
+    const mode = getComposerMode();
+    if (mode === "note") {
       handleChatSubmit();
+      return;
+    }
+    if (mode === "dish") {
+      handleChatDishCreate();
       return;
     }
     handleAiParse();
@@ -2982,7 +3106,8 @@
     editingEntryId = id;
     elements.entryDate.value = entry.date;
     updateDatePickerLabel();
-    switchView("start");
+    setChatInputMode("meal");
+    switchView("chat");
     elements.rawInput.value = entry.rawText;
     composerDrafts.meal = entry.rawText;
     elements.saveButton.textContent = "Zapisz";
@@ -3000,9 +3125,10 @@
     const dish = customDishes.find((item) => item.id === id);
     if (!dish) return;
     editingDishId = id;
-    switchView("start");
+    setChatInputMode("dish");
+    switchView("chat");
     elements.rawInput.value = dish.rawText;
-    composerDrafts.meal = dish.rawText;
+    composerDrafts.dish = dish.rawText;
     elements.saveButton.textContent = "Zapisz";
     elements.saveButton.setAttribute("aria-label", "Zapisz danie");
     elements.saveButton.hidden = false;
@@ -3021,6 +3147,7 @@
     updateDatePickerLabel();
     elements.rawInput.value = "";
     composerDrafts.meal = "";
+    composerDrafts.dish = "";
     elements.saveButton.textContent = "Gem";
     elements.saveButton.setAttribute("aria-label", "Zapisz format Gema");
     elements.saveButton.title = "Zapisz format Gema";
@@ -3112,6 +3239,29 @@
     } catch (error) {
       console.error(error);
       setMessage(elements.formMessage, "Nie udało się usunąć wpisu.", "error");
+    }
+  }
+
+  async function handleDeleteAllHistory() {
+    if (!entries.length) {
+      setMessage(elements.formMessage, "Historia jest już pusta.", "success");
+      closeMenu();
+      return;
+    }
+    if (!window.confirm("Usunąć całą lokalną historię posiłków? Tej akcji nie można cofnąć. Dania, ustawienia i inne dane zostaną bez zmian.")) {
+      return;
+    }
+
+    try {
+      const ids = entries.map((entry) => entry.id).filter(Boolean);
+      await Promise.all(ids.map((id) => window.ketoDb.deleteEntry(id)));
+      cancelEditEntry(false);
+      await refreshEntries();
+      closeMenu();
+      setMessage(elements.formMessage, "Usunięto całą historię posiłków.", "success");
+    } catch (error) {
+      console.error(error);
+      setMessage(elements.formMessage, "Nie udało się usunąć całej historii.", "error");
     }
   }
 
@@ -3429,6 +3579,13 @@
         renderHomeProgress();
       });
     });
+    elements.chatModeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setChatInputMode(button.dataset.chatMode);
+        switchView("chat");
+        elements.rawInput.focus();
+      });
+    });
     elements.clearButton.addEventListener("click", () => {
       elements.rawInput.value = "";
       composerDrafts[getComposerMode()] = "";
@@ -3441,9 +3598,10 @@
       alertsExpanded = !alertsExpanded;
       renderAlerts();
     });
-    elements.bottomMenuButton.addEventListener("click", openMenu);
+    elements.bottomMenuButton.addEventListener("click", toggleMenu);
     elements.closeMenuButton.addEventListener("click", closeMenu);
     elements.menuBackdrop.addEventListener("click", closeMenu);
+    elements.deleteHistoryButton.addEventListener("click", handleDeleteAllHistory);
     elements.debugToggleButton.addEventListener("click", toggleDebugPanel);
     elements.debugResetCostButton.addEventListener("click", resetDebugCostTotal);
     elements.foodLookupTestButton.addEventListener("click", runFoodLookupSmokeTest);
@@ -3533,6 +3691,7 @@
       aiParseButton: document.querySelector("#ai-parse-button"),
       appDebugPanel: document.querySelector("#app-debug-panel"),
       appMenu: document.querySelector("#app-menu"),
+      appViewLabel: document.querySelector("#app-view-label"),
       appearanceInstallButton: document.querySelector("#appearance-install-button"),
       backupMessage: document.querySelector("#backup-message"),
       alertsList: document.querySelector("#alerts-list"),
@@ -3544,6 +3703,7 @@
       composerShell: document.querySelector(".composer-shell"),
       datePickerButton: document.querySelector("#date-picker-button"),
       chatMessages: document.querySelector("#chat-messages"),
+      chatModeButtons: [...document.querySelectorAll("[data-chat-mode]")],
       debugAiDuration: document.querySelector("#debug-ai-duration"),
       debugAiErrorMessage: document.querySelector("#debug-ai-error-message"),
       debugAiErrorType: document.querySelector("#debug-ai-error-type"),
@@ -3566,6 +3726,7 @@
       debugFoodLookupUrl: document.querySelector("#debug-food-lookup-url"),
       debugLastChange: document.querySelector("#debug-last-change"),
       debugResetCostButton: document.querySelector("#debug-reset-cost-button"),
+      deleteHistoryButton: document.querySelector("#delete-history-button"),
       debugSupabaseUrl: document.querySelector("#debug-supabase-url"),
       debugToggleButton: document.querySelector("#debug-toggle-button"),
       dishAiClearButton: document.querySelector("#dish-ai-clear-button"),
