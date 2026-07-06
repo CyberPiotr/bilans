@@ -2063,6 +2063,8 @@
     const now = new Date().toISOString();
     const dish = {
       ...parsedDish,
+      sync_id: parsedDish.sync_id || parsedDish.client_dish_id || parsedDish.id,
+      client_dish_id: parsedDish.client_dish_id || parsedDish.sync_id || parsedDish.id,
       initialMassG: parsedDish.totalMassG,
       remainingMassG: Number.isFinite(Number(existingDish?.remainingMassG)) ? Number(existingDish.remainingMassG) : parsedDish.totalMassG,
       usedMassG: Number.isFinite(Number(existingDish?.usedMassG)) ? Number(existingDish.usedMassG) : 0,
@@ -2344,6 +2346,7 @@
     error = "",
     errorCode = "",
     detail = "",
+    stats = null,
     serverTime = "",
   }) {
     const payload = {
@@ -2355,6 +2358,11 @@
     };
     if (errorCode) payload.error_code = errorCode;
     if (detail) payload.detail = shortDebugMessage(detail, 160);
+    if (stats && typeof stats === "object") {
+      payload.pushed_new = Number(stats.pushed_new || 0);
+      payload.pushed_updated = Number(stats.pushed_updated || 0);
+      payload.skipped_duplicates = Number(stats.skipped_duplicates || 0);
+    }
     if (error) payload.error = shortDebugMessage(error, 140);
     console.info("[Cyber Zdrowie Sync Debug]", payload);
   }
@@ -2436,22 +2444,229 @@
       entriesCount,
       dishesCount,
       success: true,
+      stats: payload.stats,
       serverTime: payload.server_time,
     });
     return payload;
   }
 
+  function readEntryStableId(entry) {
+    return String(entry?.sync_id || entry?.client_entry_id || entry?.local_id || entry?.id || "").trim();
+  }
+
+  function readDishStableId(dish) {
+    return String(dish?.sync_id || dish?.client_dish_id || dish?.local_id || dish?.id || "").trim();
+  }
+
+  function normalizeEntrySyncIdentity(entry) {
+    const stableId = readEntryStableId(entry);
+    if (!stableId) return null;
+    return {
+      ...entry,
+      id: stableId,
+      sync_id: stableId,
+      client_entry_id: stableId,
+    };
+  }
+
+  function normalizeDishSyncIdentity(dish) {
+    const stableId = readDishStableId(dish);
+    if (!stableId) return null;
+    return {
+      ...dish,
+      id: stableId,
+      sync_id: stableId,
+      client_dish_id: stableId,
+    };
+  }
+
+  function stableStringify(value) {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function getEntrySyncFingerprint(entry) {
+    return [
+      "entry",
+      entry?.date || "",
+      entry?.createdAt || "",
+      entry?.rawText || "",
+      stableStringify(entry?.parsedData || {}),
+    ].join("|");
+  }
+
+  function getDishSyncFingerprint(dish) {
+    return [
+      "dish",
+      dish?.name || "",
+      dish?.createdAt || "",
+      dish?.rawText || "",
+      dish?.totalMassG || "",
+      stableStringify(dish?.totalData || {}),
+    ].join("|");
+  }
+
+  function readSyncUpdatedAt(item) {
+    const value = item?.updatedAt || item?.createdAt || "";
+    const time = Date.parse(value);
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function shouldApplyPulledItem(pulled, existing) {
+    return readSyncUpdatedAt(pulled) > readSyncUpdatedAt(existing);
+  }
+
+  function countPotentialDuplicateEntries(list) {
+    const counts = new Map();
+    list.forEach((entry) => {
+      const fingerprint = getEntrySyncFingerprint(entry);
+      counts.set(fingerprint, (counts.get(fingerprint) || 0) + 1);
+    });
+    return [...counts.values()].reduce((total, count) => total + Math.max(0, count - 1), 0);
+  }
+
+  async function mergePulledEntries(pulledEntries) {
+    const existingEntries = await window.ketoDb.getAllEntries();
+    const byStableId = new Map();
+    const byFingerprint = new Map();
+    existingEntries.forEach((entry) => {
+      const stableId = readEntryStableId(entry);
+      if (stableId) byStableId.set(stableId, entry);
+      byFingerprint.set(getEntrySyncFingerprint(entry), entry);
+    });
+
+    const seenStableIds = new Set();
+    const seenFingerprints = new Set();
+    const stats = { pulledNew: 0, pulledUpdated: 0, skippedExisting: 0, skippedDuplicates: 0 };
+
+    for (const rawEntry of pulledEntries) {
+      const normalized = normalizeEntrySyncIdentity(rawEntry);
+      if (!normalized || !isValidImportedEntry(normalized)) {
+        stats.skippedDuplicates += 1;
+        continue;
+      }
+      const stableId = readEntryStableId(normalized);
+      const fingerprint = getEntrySyncFingerprint(normalized);
+      if (seenStableIds.has(stableId) || seenFingerprints.has(fingerprint)) {
+        stats.skippedDuplicates += 1;
+        continue;
+      }
+      seenStableIds.add(stableId);
+      seenFingerprints.add(fingerprint);
+
+      const existing = byStableId.get(stableId) || byFingerprint.get(fingerprint);
+      if (!existing) {
+        const saved = normalizeImportedEntry(normalized);
+        await window.ketoDb.saveEntry(saved);
+        byStableId.set(stableId, saved);
+        byFingerprint.set(fingerprint, saved);
+        stats.pulledNew += 1;
+        continue;
+      }
+
+      const needsIdentityPatch = readEntryStableId(existing) !== stableId;
+      if (shouldApplyPulledItem(normalized, existing) || needsIdentityPatch) {
+        const saved = normalizeImportedEntry({
+          ...existing,
+          ...normalized,
+          id: existing.id || stableId,
+          sync_id: stableId,
+          client_entry_id: stableId,
+        });
+        await window.ketoDb.saveEntry(saved);
+        byStableId.set(stableId, saved);
+        byFingerprint.set(fingerprint, saved);
+        stats.pulledUpdated += 1;
+      } else {
+        stats.skippedExisting += 1;
+      }
+    }
+
+    return stats;
+  }
+
+  async function mergePulledDishes(pulledDishes) {
+    const existingDishes = await window.ketoDb.getAllCustomDishes();
+    const byStableId = new Map();
+    const byFingerprint = new Map();
+    existingDishes.forEach((dish) => {
+      const stableId = readDishStableId(dish);
+      if (stableId) byStableId.set(stableId, dish);
+      byFingerprint.set(getDishSyncFingerprint(dish), dish);
+    });
+
+    const seenStableIds = new Set();
+    const seenFingerprints = new Set();
+    const stats = { pulledNew: 0, pulledUpdated: 0, skippedExisting: 0, skippedDuplicates: 0 };
+
+    for (const rawDish of pulledDishes) {
+      const normalized = normalizeDishSyncIdentity(rawDish);
+      if (!normalized || !isValidImportedDish(normalized)) {
+        stats.skippedDuplicates += 1;
+        continue;
+      }
+      const stableId = readDishStableId(normalized);
+      const fingerprint = getDishSyncFingerprint(normalized);
+      if (seenStableIds.has(stableId) || seenFingerprints.has(fingerprint)) {
+        stats.skippedDuplicates += 1;
+        continue;
+      }
+      seenStableIds.add(stableId);
+      seenFingerprints.add(fingerprint);
+
+      const existing = byStableId.get(stableId) || byFingerprint.get(fingerprint);
+      if (!existing) {
+        const saved = normalizeImportedDish(normalized);
+        await window.ketoDb.saveCustomDish(saved);
+        byStableId.set(stableId, saved);
+        byFingerprint.set(fingerprint, saved);
+        stats.pulledNew += 1;
+        continue;
+      }
+
+      const needsIdentityPatch = readDishStableId(existing) !== stableId;
+      if (shouldApplyPulledItem(normalized, existing) || needsIdentityPatch) {
+        const saved = normalizeImportedDish({
+          ...existing,
+          ...normalized,
+          id: existing.id || stableId,
+          sync_id: stableId,
+          client_dish_id: stableId,
+        });
+        await window.ketoDb.saveCustomDish(saved);
+        byStableId.set(stableId, saved);
+        byFingerprint.set(fingerprint, saved);
+        stats.pulledUpdated += 1;
+      } else {
+        stats.skippedExisting += 1;
+      }
+    }
+
+    return stats;
+  }
+
   async function importCloudSyncPayload(payload) {
     const pulledEntries = Array.isArray(payload?.entries) ? payload.entries : [];
     const pulledDishes = Array.isArray(payload?.dishes) ? payload.dishes : [];
-    const validEntries = pulledEntries.filter(isValidImportedEntry).map(normalizeImportedEntry);
-    const validDishes = pulledDishes.filter(isValidImportedDish).map(normalizeImportedDish);
-    const [importedEntries, importedDishes] = await Promise.all([
-      window.ketoDb.importEntries(validEntries),
-      window.ketoDb.importCustomDishes(validDishes),
+    const [entryStats, dishStats] = await Promise.all([
+      mergePulledEntries(pulledEntries),
+      mergePulledDishes(pulledDishes),
     ]);
-    if (importedEntries || importedDishes) await refreshEntries();
-    return { importedEntries, importedDishes };
+    const pulledNew = entryStats.pulledNew + dishStats.pulledNew;
+    const pulledUpdated = entryStats.pulledUpdated + dishStats.pulledUpdated;
+    if (pulledNew || pulledUpdated) await refreshEntries();
+    const allEntries = await window.ketoDb.getAllEntries();
+    return {
+      pulledNew,
+      pulledUpdated,
+      skippedExisting: entryStats.skippedExisting + dishStats.skippedExisting,
+      skippedDuplicates: entryStats.skippedDuplicates + dishStats.skippedDuplicates,
+      totalLocalEntriesAfterSync: allEntries.length,
+      potentialLocalDuplicateEntries: countPotentialDuplicateEntries(allEntries),
+    };
   }
 
   async function handleSyncConnect() {
@@ -2500,10 +2715,25 @@
         syncDishes: allCustomDishes,
         since: null,
       });
-      const { importedEntries, importedDishes } = await importCloudSyncPayload(payload);
+      const mergeStats = await importCloudSyncPayload(payload);
+      const pushedNew = Number(payload?.stats?.pushed_new || 0);
+      const pushedUpdated = Number(payload?.stats?.pushed_updated || 0);
+      const pushedSkippedDuplicates = Number(payload?.stats?.skipped_duplicates || 0);
       saveLastSyncAt(payload.server_time || new Date().toISOString());
+      console.info("[Cyber Zdrowie Sync Debug]", {
+        action: "sync-result",
+        pushed_new: pushedNew,
+        pushed_updated: pushedUpdated,
+        pulled_new: mergeStats.pulledNew,
+        pulled_updated: mergeStats.pulledUpdated,
+        skipped_existing: mergeStats.skippedExisting,
+        skipped_duplicates: mergeStats.skippedDuplicates + pushedSkippedDuplicates,
+        total_local_entries_after_sync: mergeStats.totalLocalEntriesAfterSync,
+        potential_local_duplicate_entries: mergeStats.potentialLocalDuplicateEntries,
+        server_time: payload.server_time || "-",
+      });
       setSyncMessage(
-        `Synchronizacja zakończona. Pobrano nowe: ${importedEntries} wpisów, ${importedDishes} dań.`,
+        `Synchronizacja zakończona. Nowe: ${mergeStats.pulledNew}, aktualizacje: ${mergeStats.pulledUpdated}, pominięte: ${mergeStats.skippedExisting}.`,
         "success",
       );
     } catch (error) {
@@ -3143,8 +3373,11 @@
 
     const products = normalizeAiProducts(result.produkty || result.products);
     const lookupResult = await resolveMealWithFoodLookup(products, fallbackParsedData, input);
+    const id = typeof result.id === "string" && result.id ? result.id : createId();
     const entry = {
-      id: typeof result.id === "string" && result.id ? result.id : createId(),
+      id,
+      sync_id: id,
+      client_entry_id: id,
       date,
       createdAt: typeof result.createdAt === "string" ? result.createdAt : new Date().toISOString(),
       rawText: input,
@@ -3205,6 +3438,8 @@
     const lookupResult = await resolveDishIngredientsWithFoodLookup(products, input);
     const dish = {
       id,
+      sync_id: id,
+      client_dish_id: id,
       name: typeof (result.name || result.nazwa) === "string" && (result.name || result.nazwa).trim()
         ? (result.name || result.nazwa).trim()
         : "Danie AI",
@@ -3430,7 +3665,8 @@
       }
       entry = createUpdatedEntry(existingEntry, date, rawText, parsedData, tags, products);
     } else {
-      entry = { id: createId(), date, createdAt: new Date().toISOString(), rawText, parsedData, tags, products };
+      const id = createId();
+      entry = { id, sync_id: id, client_entry_id: id, date, createdAt: new Date().toISOString(), rawText, parsedData, tags, products };
     }
 
     try {
@@ -3522,8 +3758,11 @@
     const parsedData = Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, Math.round((dish.totalData?.[key] || 0) * ratio)]));
     const rawText = `Porcja dania własnego: ${dish.name} | ${formatNumber(portionG)} g`;
     const ingredientSourceSummary = getIngredientSourceCounts(Array.isArray(dish.products) ? dish.products : []);
+    const entryId = createId();
     const entry = {
-      id: createId(),
+      id: entryId,
+      sync_id: entryId,
+      client_entry_id: entryId,
       date: elements.entryDate.value || localDateString(),
       createdAt: new Date().toISOString(),
       rawText,

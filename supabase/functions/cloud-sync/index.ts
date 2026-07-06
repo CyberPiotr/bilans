@@ -23,6 +23,9 @@ type SyncBody = {
 
 type SyncPayload = Record<string, unknown> & {
   id?: unknown;
+  sync_id?: unknown;
+  client_entry_id?: unknown;
+  client_dish_id?: unknown;
   local_id?: unknown;
   date?: unknown;
   updatedAt?: unknown;
@@ -43,6 +46,14 @@ type EnvState = {
   supabaseUrl: string;
   serviceRoleKey: string;
   pepper: string;
+};
+
+type PayloadKind = "entry" | "dish";
+
+type UpsertSummary = {
+  newCount: number;
+  updatedCount: number;
+  skippedDuplicateCount: number;
 };
 
 const allowedActions = new Set<SyncAction>(["health", "setup", "push", "pull", "sync"]);
@@ -160,14 +171,30 @@ function readPayloadArray(value: unknown, fieldName: "entries" | "dishes"): Sync
   return value as SyncPayload[];
 }
 
-function readLocalId(item: SyncPayload): string | null {
-  const value = typeof item.local_id === "string" ? item.local_id : item.id;
+function readStableId(item: SyncPayload, kind: PayloadKind): string | null {
+  const clientId = kind === "entry" ? item.client_entry_id : item.client_dish_id;
+  const value = typeof item.sync_id === "string" && item.sync_id.trim()
+    ? item.sync_id
+    : typeof clientId === "string" && clientId.trim()
+      ? clientId
+      : typeof item.local_id === "string" && item.local_id.trim()
+        ? item.local_id
+        : item.id;
   const text = String(value || "").trim();
   return text || null;
 }
 
-function assertLocalIds(fieldName: "entries" | "dishes", items: SyncPayload[]): void {
-  const invalidIndex = items.findIndex((item) => !readLocalId(item));
+function withStableIdentity(item: SyncPayload, kind: PayloadKind, stableId: string): SyncPayload {
+  return {
+    ...item,
+    id: stableId,
+    sync_id: stableId,
+    [kind === "entry" ? "client_entry_id" : "client_dish_id"]: stableId,
+  };
+}
+
+function assertLocalIds(fieldName: "entries" | "dishes", items: SyncPayload[], kind: PayloadKind): void {
+  const invalidIndex = items.findIndex((item) => !readStableId(item, kind));
   if (invalidIndex >= 0) {
     throw new CloudSyncError("invalid_payload", `${fieldName}[${invalidIndex}] is missing id/local_id`, 400);
   }
@@ -182,28 +209,50 @@ function readPayloadTimestamp(item: SyncPayload, fallback: string): string {
 }
 
 function toEntryRows(syncSpaceId: string, entries: SyncPayload[], deviceId: string | null, now: string): SyncRow[] {
-  assertLocalIds("entries", entries);
-  return entries.map((entry) => ({
-    sync_space_id: syncSpaceId,
-    local_id: readLocalId(entry) as string,
-    entry_date: typeof entry.date === "string" ? entry.date : null,
-    payload: entry,
-    source_device: deviceId,
-    deleted_at: null,
-    updated_at: readPayloadTimestamp(entry, now),
-  }));
+  assertLocalIds("entries", entries, "entry");
+  return entries.map((entry) => {
+    const stableId = readStableId(entry, "entry") as string;
+    const payload = withStableIdentity(entry, "entry", stableId);
+    return {
+      sync_space_id: syncSpaceId,
+      local_id: stableId,
+      entry_date: typeof payload.date === "string" ? payload.date : null,
+      payload,
+      source_device: deviceId,
+      deleted_at: null,
+      updated_at: readPayloadTimestamp(payload, now),
+    };
+  });
 }
 
 function toDishRows(syncSpaceId: string, dishes: SyncPayload[], deviceId: string | null, now: string): SyncRow[] {
-  assertLocalIds("dishes", dishes);
-  return dishes.map((dish) => ({
-    sync_space_id: syncSpaceId,
-    local_id: readLocalId(dish) as string,
-    payload: dish,
-    source_device: deviceId,
-    deleted_at: null,
-    updated_at: readPayloadTimestamp(dish, now),
-  }));
+  assertLocalIds("dishes", dishes, "dish");
+  return dishes.map((dish) => {
+    const stableId = readStableId(dish, "dish") as string;
+    const payload = withStableIdentity(dish, "dish", stableId);
+    return {
+      sync_space_id: syncSpaceId,
+      local_id: stableId,
+      payload,
+      source_device: deviceId,
+      deleted_at: null,
+      updated_at: readPayloadTimestamp(payload, now),
+    };
+  });
+}
+
+function dedupeRowsByLocalId(rows: SyncRow[]): { rows: SyncRow[]; skippedDuplicateCount: number } {
+  const byLocalId = new Map<string, SyncRow>();
+  rows.forEach((row) => {
+    const existing = byLocalId.get(row.local_id);
+    if (!existing || Date.parse(row.updated_at) >= Date.parse(existing.updated_at)) {
+      byLocalId.set(row.local_id, row);
+    }
+  });
+  return {
+    rows: [...byLocalId.values()],
+    skippedDuplicateCount: rows.length - byLocalId.size,
+  };
 }
 
 async function ensureSyncSpace(supabase: ReturnType<typeof createClient>, codeHash: string): Promise<string> {
@@ -224,27 +273,46 @@ async function ensureSyncSpace(supabase: ReturnType<typeof createClient>, codeHa
 async function upsertRows(
   supabase: ReturnType<typeof createClient>,
   table: "sync_entries" | "sync_dishes",
+  syncSpaceId: string,
   rows: SyncRow[],
   errorCode: "upsert_entries_failed" | "upsert_dishes_failed",
-): Promise<void> {
-  if (!rows.length) return;
+): Promise<UpsertSummary> {
+  if (!rows.length) return { newCount: 0, updatedCount: 0, skippedDuplicateCount: 0 };
+  const deduped = dedupeRowsByLocalId(rows);
+  const localIds = deduped.rows.map((row) => row.local_id);
+  const { data: existingRows, error: existingError } = await supabase
+    .from(table)
+    .select("local_id")
+    .eq("sync_space_id", syncSpaceId)
+    .in("local_id", localIds);
+  if (existingError) {
+    throw new CloudSyncError(errorCode, `${table} existing id check failed: ${existingError.message}`, 500, existingError);
+  }
+  const existingIds = new Set((existingRows || []).map((row) => String(row.local_id)));
   const { error } = await supabase
     .from(table)
-    .upsert(rows, { onConflict: "sync_space_id,local_id" });
+    .upsert(deduped.rows, { onConflict: "sync_space_id,local_id" });
   if (error) {
     throw new CloudSyncError(errorCode, `${table} upsert failed: ${error.message}`, 500, error);
   }
+  const updatedCount = deduped.rows.filter((row) => existingIds.has(row.local_id)).length;
+  return {
+    newCount: deduped.rows.length - updatedCount,
+    updatedCount,
+    skippedDuplicateCount: deduped.skippedDuplicateCount,
+  };
 }
 
 async function pullPayloads(
   supabase: ReturnType<typeof createClient>,
   table: "sync_entries" | "sync_dishes",
+  kind: PayloadKind,
   syncSpaceId: string,
   since: string | null | undefined,
 ): Promise<SyncPayload[]> {
   let query = supabase
     .from(table)
-    .select("payload,updated_at")
+    .select("local_id,payload,updated_at")
     .eq("sync_space_id", syncSpaceId)
     .is("deleted_at", null)
     .order("updated_at", { ascending: true });
@@ -258,8 +326,13 @@ async function pullPayloads(
     throw new CloudSyncError("pull_failed", `${table} pull failed: ${error.message}`, 500, error);
   }
   return (data || [])
-    .map((row) => row.payload)
-    .filter((payload): payload is SyncPayload => Boolean(payload) && typeof payload === "object" && !Array.isArray(payload));
+    .map((row) => {
+      const payload = row.payload;
+      const stableId = String(row.local_id || "").trim();
+      if (!stableId || !payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+      return withStableIdentity(payload as SyncPayload, kind, stableId);
+    })
+    .filter((payload): payload is SyncPayload => Boolean(payload));
 }
 
 async function checkTableAccess(supabase: ReturnType<typeof createClient>, table: string): Promise<void> {
@@ -377,20 +450,40 @@ Deno.serve(async (request) => {
     });
     const syncSpaceId = await ensureSyncSpace(supabase, codeHash);
     const deviceId = sanitizeDeviceId(body.device_id);
+    const stats = {
+      pushed_new: 0,
+      pushed_updated: 0,
+      skipped_duplicates: 0,
+    };
 
     if (action === "push" || action === "sync") {
       const entries = readPayloadArray(body.entries, "entries");
       const dishes = readPayloadArray(body.dishes, "dishes");
-      await upsertRows(supabase, "sync_entries", toEntryRows(syncSpaceId, entries, deviceId, serverTime), "upsert_entries_failed");
-      await upsertRows(supabase, "sync_dishes", toDishRows(syncSpaceId, dishes, deviceId, serverTime), "upsert_dishes_failed");
+      const entrySummary = await upsertRows(
+        supabase,
+        "sync_entries",
+        syncSpaceId,
+        toEntryRows(syncSpaceId, entries, deviceId, serverTime),
+        "upsert_entries_failed",
+      );
+      const dishSummary = await upsertRows(
+        supabase,
+        "sync_dishes",
+        syncSpaceId,
+        toDishRows(syncSpaceId, dishes, deviceId, serverTime),
+        "upsert_dishes_failed",
+      );
+      stats.pushed_new = entrySummary.newCount + dishSummary.newCount;
+      stats.pushed_updated = entrySummary.updatedCount + dishSummary.updatedCount;
+      stats.skipped_duplicates = entrySummary.skippedDuplicateCount + dishSummary.skippedDuplicateCount;
     }
 
     const shouldPull = action === "pull" || action === "sync";
     const entries = shouldPull
-      ? await pullPayloads(supabase, "sync_entries", syncSpaceId, body.since)
+      ? await pullPayloads(supabase, "sync_entries", "entry", syncSpaceId, body.since)
       : [];
     const dishes = shouldPull
-      ? await pullPayloads(supabase, "sync_dishes", syncSpaceId, body.since)
+      ? await pullPayloads(supabase, "sync_dishes", "dish", syncSpaceId, body.since)
       : [];
 
     return jsonResponse(request, {
@@ -398,6 +491,7 @@ Deno.serve(async (request) => {
       sync_space_id: syncSpaceId,
       entries,
       dishes,
+      stats,
       server_time: new Date().toISOString(),
     });
   } catch (error) {
