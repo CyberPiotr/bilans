@@ -553,6 +553,54 @@
     return { ...existingEntry, date, rawText, parsedData, tags, products, updatedAt };
   }
 
+  function getNutritionMode() {
+    return String(window.VITATRACK_CONFIG?.nutritionMode || "food_lookup").trim() || "food_lookup";
+  }
+
+  function isAiEstimateOnlyMode() {
+    return getNutritionMode() === "ai_estimate_only";
+  }
+
+  function logNutritionModeDebug({ skippedFoodLookup = false, context = "", productCount = 0 } = {}) {
+    console.info("[Cyber Zdrowie Nutrition Mode]", {
+      mode: getNutritionMode(),
+      food_lookup_skipped: Boolean(skippedFoodLookup),
+      context,
+      product_count: Number(productCount || 0),
+    });
+  }
+
+  function createAiEstimateSource(rawInput, productCount = 0) {
+    return {
+      type: "ai_estimate",
+      label: "Źródło: szacunek AI",
+      badgeText: "Szacunek AI",
+      foodLookupStatus: "skipped",
+      requiresConfirmation: true,
+      confidence: "estimate",
+      estimateNote: "Baza produktów jest tymczasowo wyłączona dla finalnego liczenia.",
+      assumptions: "Wartości pochodzą z AI parsera i są traktowane jako szacunek.",
+      nutritionMode: getNutritionMode(),
+      originalText: rawInput || "",
+      productCount: Number(productCount || 0),
+    };
+  }
+
+  function createAiEstimateProductMetadata(product) {
+    return {
+      ...product,
+      lookupStatus: "skipped",
+      query: product?.name || null,
+      matchedName: null,
+      fdcId: null,
+      requiresConfirmation: true,
+      matchType: null,
+      dataSourceType: "ai_estimate",
+      confidence: "estimate",
+      estimateNote: "Food lookup pominięty przez tryb ai_estimate_only.",
+    };
+  }
+
   function extractExplicitDishTotalMass(rawText) {
     const normalized = normalizeText(rawText).replace(/\s+/g, " ");
     const patterns = [
@@ -582,6 +630,9 @@
       };
     }
     const type = source.type || "unknown";
+    if (type === "ai_estimate") {
+      return { ...source, badgeText: source.badgeText || "Szacunek AI", className: "ai-estimate" };
+    }
     if (type === "food_database") {
       return { ...source, badgeText: "Baza", className: "database" };
     }
@@ -610,6 +661,7 @@
   }
 
   function getProductSourceBadgeInfo(product) {
+    if (product?.dataSourceType === "ai_estimate") return { text: "Szacunek AI", className: "ai-estimate" };
     const statusMap = {
       food_database: { text: "Baza", className: "database" },
       food_database_proxy: { text: "Baza proxy", className: "proxy" },
@@ -748,8 +800,9 @@
       if (source.className === "proxy") counts.proxy += 1;
       if (source.className === "missing") counts.missing += 1;
       if (source.className === "error") counts.error += 1;
+      if (source.className === "ai-estimate") counts.aiEstimate += 1;
       return counts;
-    }, { database: 0, proxy: 0, missing: 0, error: 0 });
+    }, { database: 0, proxy: 0, missing: 0, error: 0, aiEstimate: 0 });
   }
 
   function getDishIngredientSourceBadges(sourceOrDish) {
@@ -763,6 +816,7 @@
       proxy: Number(summary?.proxy || 0),
       missing: Number(summary?.missing || 0),
       error: Number(summary?.error || 0),
+      aiEstimate: Number(summary?.aiEstimate || 0),
     };
     const type = sourceOrDish?.dataSource?.type || sourceOrDish?.source?.type || sourceOrDish?.type || "";
     if (!products && !summary) {
@@ -770,6 +824,7 @@
       if (type === "custom_dish_food_database_proxy") counts.proxy = 1;
       if (type === "custom_dish_missing") counts.missing = 1;
       if (type === "custom_dish_lookup_error") counts.error = 1;
+      if (type === "custom_dish_ai_estimate") counts.aiEstimate = 1;
       if (type === "custom_dish_mixed_food_database_ai_fallback") {
         counts.proxy = 1;
         counts.missing = 1;
@@ -777,6 +832,7 @@
     }
 
     const badges = [];
+    if (counts.aiEstimate > 0) badges.push({ text: "Szacunek AI", className: "ai-estimate" });
     if (counts.database > 0) badges.push({ text: "Baza", className: "database" });
     if (counts.proxy > 0) badges.push({ text: "Proxy", className: "proxy" });
     if (counts.missing > 0) badges.push({ text: `Brak: ${counts.missing}`, className: "missing" });
@@ -800,6 +856,7 @@
 
   function getDishIngredientQualityText(source) {
     const type = source?.type || "";
+    if (type === "custom_dish_ai_estimate") return "Źródła składników: szacunek AI";
     if (type === "custom_dish_food_database") return "Źródła składników: baza";
     if (type === "custom_dish_food_database_proxy") return "Źródła składników: baza/proxy";
     if (type === "custom_dish_mixed_food_database_ai_fallback") return "Źródła składników: baza + brak";
@@ -809,6 +866,9 @@
   }
 
   function getDishDataSourceInfo(dish) {
+    if (dish?.dataSource?.type === "custom_dish_ai_estimate" || dish?.source?.type === "custom_dish_ai_estimate") {
+      return { ...(dish.dataSource || dish.source), label: "Jakość danych: szacunek AI", className: "ai-estimate" };
+    }
     const source = dish?.dataSource || dish?.source;
     if (!source || typeof source !== "object") {
       return { label: "Jakość danych: źródło składników nieznane", className: "unknown" };
@@ -2931,6 +2991,17 @@
   }
 
   async function resolveMealWithFoodLookup(products, fallbackParsedData, rawInput = "") {
+    if (isAiEstimateOnlyMode()) {
+      logNutritionModeDebug({ skippedFoodLookup: true, context: "meal", productCount: products.length });
+      updateAiDebug({ foodLookupStatus: "skipped" });
+      return {
+        parsedData: fallbackParsedData,
+        status: "ai_estimate",
+        products: products.map((product) => createAiEstimateProductMetadata(product)),
+        source: createAiEstimateSource(rawInput, products.length),
+      };
+    }
+
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak produktów" });
       return {
@@ -3070,6 +3141,19 @@
   }
 
   async function resolveDishIngredientsWithFoodLookup(products, rawInput = "") {
+    if (isAiEstimateOnlyMode()) {
+      logNutritionModeDebug({ skippedFoodLookup: true, context: "custom_dish", productCount: products.length });
+      updateAiDebug({ foodLookupStatus: "skipped" });
+      return {
+        products: products.map((product) => createAiEstimateProductMetadata(product)),
+        source: {
+          ...createAiEstimateSource(rawInput, products.length),
+          type: "custom_dish_ai_estimate",
+          label: "Składniki: szacunek AI",
+        },
+      };
+    }
+
     if (!products.length) {
       updateAiDebug({ foodLookupStatus: "brak składników dania" });
       return {
@@ -3140,6 +3224,10 @@
   }
 
   async function requestFoodLookup({ query, amount_g, variant = null, fdc_id = null, limit = 5 }) {
+    if (isAiEstimateOnlyMode()) {
+      logNutritionModeDebug({ skippedFoodLookup: true, context: "direct_food_lookup_request", productCount: 1 });
+      throw new Error("Food lookup is disabled by nutrition mode: ai_estimate_only");
+    }
     const config = window.VITATRACK_CONFIG || {};
     const functionUrl = String(config.foodLookupFunctionUrl || "").trim();
     const normalizedQuery = normalizeLookupQuery(query);
@@ -3384,13 +3472,14 @@
       parsedData: lookupResult.parsedData,
       tags: normalizeAiTags(result.tagi || result.tags, products),
       products: lookupResult.products || products,
-      nutritionSource: lookupResult.source,
+      nutritionSource: lookupResult.source?.type === "ai_estimate" ? "ai_estimate" : lookupResult.source,
       dataSource: lookupResult.source,
     };
     await window.ketoDb.saveEntry(entry);
     cancelEditEntry(false);
     const sourceMessage = lookupResult.status === "matched"
       ? "baza: matched"
+      : lookupResult.status === "ai_estimate" ? "Źródło: szacunek AI"
       : lookupResult.status === "mixed" ? "baza: częściowo, fallback AI dla całości"
       : lookupResult.status === "not_found" ? "baza: not_found, zapisano fallback AI" : `baza: ${lookupResult.status}`;
     setMessage(elements.formMessage, `Posiłek zapisany. ${sourceMessage}.`, "success");

@@ -501,6 +501,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; box-shadow: inset 0 0 0 1px rgba(220, 38, 38, .18); }
 .source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
 .source-badge.custom-dish { border-color: #2563eb; background: #dbeafe; color: #1d4ed8; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .18); }
+.source-badge.ai-estimate { border-color: #7c3aed; background: #ede9fe; color: #5b21b6; box-shadow: inset 0 0 0 1px rgba(124, 58, 237, .16); }
 .source-badge.unknown { border-color: var(--app-border); background: var(--app-surface-soft); color: var(--app-muted); }
 .entry-actions { display: flex; gap: 6px; }
 .edit-button, .delete-button { min-height: 44px; padding: 0 10px; border: 0; border-radius: 12px; font-size: .76rem; font-weight: 800; }
@@ -522,6 +523,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .ingredient-source-badge.proxy { border-color: #f59e0b; background: #fff1b8; color: #7a4300; }
 .ingredient-source-badge.missing { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
 .ingredient-source-badge.error { border-color: #7f1d1d; background: #7f1d1d; color: #fff7ed; }
+.ingredient-source-badge.ai-estimate { border-color: #7c3aed; background: #ede9fe; color: #5b21b6; }
 .ingredient-source-badge.custom-dish, .ingredient-source-badge.unknown { border-color: var(--app-border); background: var(--app-surface); color: var(--app-muted); }
 .ingredient-food-form { color: var(--app-muted); font-size: .68rem; font-weight: 800; }
 .entry-details pre { max-height: 240px; overflow: auto; margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--app-surface-soft); color: var(--app-text); font-size: .72rem; white-space: pre-wrap; }
@@ -575,6 +577,7 @@ body[data-current-view]:not([data-current-view="start"]) .composer-input-area { 
 .dish-source.database { color: var(--app-success); background: var(--app-success-bg); }
 .dish-source.proxy, .dish-source.mixed { color: var(--app-warning); background: var(--app-warning-bg); }
 .dish-source.missing, .dish-source.error { color: var(--app-danger); background: var(--app-danger-bg); }
+.dish-source.ai-estimate { color: #5b21b6; background: #ede9fe; }
 .dish-products { display: grid; gap: 6px; padding: 9px 10px; border-radius: 14px; background: var(--app-surface-soft); }
 .dish-products h3 { margin: 0; font-size: .78rem; }
 .dish-products ul { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: var(--app-muted); font-size: .72rem; line-height: 1.35; }
